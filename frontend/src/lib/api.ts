@@ -70,10 +70,32 @@ export interface PathCoord {
   lon: number;
 }
 
+export interface AlternateRouteInfo {
+  id: string;
+  name: string;
+  path: string[];
+  path_coords?: PathCoord[];
+  distance_m: number;
+  max_depth_cm: number;
+  avg_depth_cm: number;
+  flooded_nodes_count: number;
+  flooded_nodes?: string[];
+  status: string;
+  is_safe: boolean;
+  reason_rejected: string;
+}
+
 export interface RouteResponse {
   path: string[];
   path_coords: PathCoord[];
+  normal_path?: string[];
+  normal_path_coords?: PathCoord[];
   distance_m: number;
+  normal_distance_m?: number;
+  safe_distance_m?: number;
+  normal_max_depth_cm?: number;
+  safe_max_depth_cm?: number;
+  is_rerouted?: boolean;
   blocked_nodes: string[];
   blocked_count: number;
   eta_normal_sec: number;
@@ -84,6 +106,7 @@ export interface RouteResponse {
   detour_m?: number;
   eta_sec?: number;
   avoided_segments?: number;
+  alternate_routes?: AlternateRouteInfo[];
   reachable: boolean;
   reason?: string;
   origin_depth_cm?: number;
@@ -119,21 +142,42 @@ export interface NetworkNode {
 }
 
 export interface NetworkEdge {
-  from_id: string;
-  to_id: string;
+  from?: string;
+  to?: string;
+  from_id?: string;
+  to_id?: string;
+  from_name?: string;
+  to_name?: string;
   from_lat: number;
   from_lon: number;
   to_lat: number;
   to_lon: number;
-  length: number;
-  diameter: number;
+  length_m?: number;
+  length?: number;
+  diameter_m?: number;
+  diameter?: number;
+  slope?: number;
+  status?: string;
+  max_capacity_m3s?: number;
+}
+
+export interface PotholeHazard {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  severity: 'SEVERE' | 'MODERATE' | 'LOW';
+  depth_cm: number;
+  road: string;
 }
 
 export interface NetworkResponse {
   nodes: Record<string, NetworkNode>;
   edges: NetworkEdge[];
+  potholes?: PotholeHazard[];
   center: { lat: number; lon: number };
   zoom: number;
+  coverage_radius_km?: number;
   location: string;
 }
 
@@ -156,6 +200,66 @@ export interface RainResponse {
   source: string;
 }
 
+// ─── High-Performance Client LRU Cache & In-Flight Request Deduplication ───
+
+class ClientLRUCache<K, V> {
+  private cache = new Map<K, V>();
+  private capacity: number;
+  constructor(capacity: number = 2000) {
+    this.capacity = capacity;
+  }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+    const val = this.cache.get(key)!;
+    this.cache.delete(key);
+    this.cache.set(key, val);
+    return val;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
+    } else if (this.cache.size >= this.capacity) {
+      const firstKey = this.cache.keys().next().value;
+      if (firstKey !== undefined) this.cache.delete(firstKey);
+    }
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean {
+    return this.cache.has(key);
+  }
+
+  clear(): void {
+    this.cache.clear();
+  }
+}
+
+const simulateCache = new ClientLRUCache<string, SimulateResponse>(1000);
+const routeCache = new ClientLRUCache<string, RouteResponse>(2000);
+const chokeCache = new ClientLRUCache<string, ChokeResponse>(500);
+const pysewerSynthCache = new ClientLRUCache<number, PysewerSynthesizeResponse>(100);
+
+let _cachedNetwork: NetworkResponse | null = null;
+let _cachedPysewerStatus: PysewerStatusResponse | null = null;
+let _cachedLiveRain: { data: RainResponse; time: number } | null = null;
+
+// In-flight promise deduplication to prevent redundant concurrent fetches
+const inFlightRequests = new Map<string, Promise<any>>();
+
+function deduplicate<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key) as Promise<T>;
+  }
+  const promise = fn()
+    .finally(() => {
+      inFlightRequests.delete(key);
+    });
+  inFlightRequests.set(key, promise);
+  return promise;
+}
+
 // ─── API Functions ────────────────────────────────────────
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -171,15 +275,66 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return res.json();
 }
 
+export function getSimulateCacheKey(rain_mm: number, minutes: number = 30, blocked_nodes: string[] = []): string {
+  const sortedBlocked = [...blocked_nodes].sort().join(',');
+  return `${Math.round(rain_mm * 10) / 10}_${minutes}_${sortedBlocked}`;
+}
+
+export function getCachedSimulate(rain_mm: number, minutes: number = 30, blocked_nodes: string[] = []): SimulateResponse | undefined {
+  return simulateCache.get(getSimulateCacheKey(rain_mm, minutes, blocked_nodes));
+}
+
 export async function simulate(
   rain_mm: number,
   minutes: number = 30,
-  blocked_nodes: string[] = []
+  blocked_nodes: string[] = [],
+  signal?: AbortSignal
 ): Promise<SimulateResponse> {
-  return fetchApi<SimulateResponse>('/api/simulate', {
-    method: 'POST',
-    body: JSON.stringify({ rain_mm, minutes, blocked_nodes }),
+  const key = getSimulateCacheKey(rain_mm, minutes, blocked_nodes);
+  const cached = simulateCache.get(key);
+  if (cached) return cached;
+
+  return deduplicate(`sim_${key}`, async () => {
+    const res = await fetchApi<SimulateResponse>('/api/simulate', {
+      method: 'POST',
+      body: JSON.stringify({ rain_mm, minutes, blocked_nodes }),
+      signal,
+    });
+    simulateCache.set(key, res);
+    return res;
   });
+}
+
+export function getRouteCacheKey(
+  source: string,
+  target: string,
+  rain_mm: number,
+  threshold_cm: number = 15,
+  minutes: number = 30,
+  blocked_nodes: string[] = [],
+  depths?: Record<string, number>
+): string {
+  const sortedBlocked = [...blocked_nodes].sort().join(',');
+  const depthHash = depths
+    ? Object.entries(depths)
+        .filter(([, v]) => v > 0)
+        .map(([k, v]) => `${k}:${Math.round(v * 10) / 10}`)
+        .sort()
+        .join(';')
+    : '';
+  return `${source}->${target}_${Math.round(rain_mm * 10) / 10}_${threshold_cm}_${minutes}_${sortedBlocked}_${depthHash}`;
+}
+
+export function getCachedRoute(
+  source: string,
+  target: string,
+  rain_mm: number,
+  threshold_cm: number = 15,
+  minutes: number = 30,
+  blocked_nodes: string[] = [],
+  depths?: Record<string, number>
+): RouteResponse | undefined {
+  return routeCache.get(getRouteCacheKey(source, target, rain_mm, threshold_cm, minutes, blocked_nodes, depths));
 }
 
 export async function findRoute(
@@ -189,11 +344,21 @@ export async function findRoute(
   threshold_cm: number = 15,
   minutes: number = 30,
   blocked_nodes: string[] = [],
-  depths?: Record<string, number>
+  depths?: Record<string, number>,
+  signal?: AbortSignal
 ): Promise<RouteResponse> {
-  return fetchApi<RouteResponse>('/api/route', {
-    method: 'POST',
-    body: JSON.stringify({ source, target, rain_mm, threshold_cm, minutes, blocked_nodes, depths }),
+  const key = getRouteCacheKey(source, target, rain_mm, threshold_cm, minutes, blocked_nodes, depths);
+  const cached = routeCache.get(key);
+  if (cached) return cached;
+
+  return deduplicate(`route_${key}`, async () => {
+    const res = await fetchApi<RouteResponse>('/api/route', {
+      method: 'POST',
+      body: JSON.stringify({ source, target, rain_mm, threshold_cm, minutes, blocked_nodes, depths }),
+      signal,
+    });
+    routeCache.set(key, res);
+    return res;
   });
 }
 
@@ -203,18 +368,57 @@ export async function chokeNode(
   minutes: number = 30,
   node_ids: string[] = []
 ): Promise<ChokeResponse> {
-  return fetchApi<ChokeResponse>('/api/choke', {
-    method: 'POST',
-    body: JSON.stringify({ node_id, rain_mm, minutes, node_ids }),
+  const key = `${node_id}_${[...node_ids].sort().join(',')}_${Math.round(rain_mm * 10) / 10}_${minutes}`;
+  const cached = chokeCache.get(key);
+  if (cached) return cached;
+
+  return deduplicate(`choke_${key}`, async () => {
+    const res = await fetchApi<ChokeResponse>('/api/choke', {
+      method: 'POST',
+      body: JSON.stringify({ node_id, rain_mm, minutes, node_ids }),
+    });
+    chokeCache.set(key, res);
+    return res;
   });
 }
 
 export async function fetchLiveRain(): Promise<RainResponse> {
-  return fetchApi<RainResponse>('/api/rain/live');
+  const now = Date.now();
+  // 3 minute client TTL cache
+  if (_cachedLiveRain && now - _cachedLiveRain.time < 180000) {
+    return _cachedLiveRain.data;
+  }
+
+  return deduplicate('rain_live', async () => {
+    const res = await fetchApi<RainResponse>('/api/rain/live');
+    _cachedLiveRain = { data: res, time: Date.now() };
+    return res;
+  });
 }
 
 export async function fetchNetwork(): Promise<NetworkResponse> {
-  return fetchApi<NetworkResponse>('/api/network');
+  if (_cachedNetwork) return _cachedNetwork;
+
+  try {
+    const fromSession = sessionStorage.getItem('agastya_network_cache');
+    if (fromSession) {
+      _cachedNetwork = JSON.parse(fromSession);
+      return _cachedNetwork!;
+    }
+  } catch {
+    // sessionStorage not accessible or quota exceeded
+  }
+
+  return deduplicate('network_static', async () => {
+    const res = await fetchApi<NetworkResponse>('/api/network');
+    _cachedNetwork = res;
+    try {
+      sessionStorage.setItem('agastya_network_cache', JSON.stringify(res));
+    } catch {
+      // ignore
+    }
+    return res;
+  });
 }
 
 export interface PysewerStatusResponse {
@@ -259,17 +463,30 @@ export interface PysewerSynthesizeResponse {
   }>;
 }
 
-
 export async function fetchPysewerStatus(): Promise<PysewerStatusResponse> {
-  return fetchApi<PysewerStatusResponse>('/api/pysewer/status');
+  if (_cachedPysewerStatus) return _cachedPysewerStatus;
+  return deduplicate('pysewer_status', async () => {
+    const res = await fetchApi<PysewerStatusResponse>('/api/pysewer/status');
+    _cachedPysewerStatus = res;
+    return res;
+  });
 }
 
 export async function synthesizePysewer(design_rain_mm_hr: number = 35): Promise<PysewerSynthesizeResponse> {
-  return fetchApi<PysewerSynthesizeResponse>(`/api/pysewer/synthesize?design_rain_mm_hr=${design_rain_mm_hr}`, {
-    method: 'POST',
+  const rounded = Math.round(design_rain_mm_hr * 10) / 10;
+  const cached = pysewerSynthCache.get(rounded);
+  if (cached) return cached;
+
+  return deduplicate(`pysewer_synth_${rounded}`, async () => {
+    const res = await fetchApi<PysewerSynthesizeResponse>(`/api/pysewer/synthesize?design_rain_mm_hr=${design_rain_mm_hr}`, {
+      method: 'POST',
+    });
+    pysewerSynthCache.set(rounded, res);
+    return res;
   });
 }
 
 export async function healthCheck(): Promise<{ status: string }> {
   return fetchApi<{ status: string }>('/health');
 }
+

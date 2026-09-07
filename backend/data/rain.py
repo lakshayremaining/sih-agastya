@@ -17,18 +17,26 @@ CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_FILE = CACHE_DIR / "rain.json"
 
 # Minto Bridge, Delhi
-LATITUDE = 28.6280
-LONGITUDE = 77.2197
+# In-memory TTL cache for live rain data (300 seconds / 5 mins)
+_LIVE_RAIN_MEMORY_CACHE: dict = {}
+_LIVE_RAIN_CACHE_TIME: float = 0.0
+_LIVE_RAIN_CACHE_TTL_SEC: float = 300.0
 
 
 async def fetch_live_rain() -> dict:
     """
     Fetch real-time rainfall data from Open-Meteo API.
-    Falls back to cached data if API is unreachable (offline demo).
+    Uses in-memory TTL cache and falls back to disk cached data if offline.
 
     Returns:
         Dict with: current_rain_mm, hourly_forecast, location, timestamp.
     """
+    global _LIVE_RAIN_MEMORY_CACHE, _LIVE_RAIN_CACHE_TIME
+
+    now = time.time()
+    if _LIVE_RAIN_MEMORY_CACHE and (now - _LIVE_RAIN_CACHE_TIME) < _LIVE_RAIN_CACHE_TTL_SEC:
+        return _LIVE_RAIN_MEMORY_CACHE
+
     try:
         import httpx
         url = (
@@ -45,7 +53,11 @@ async def fetch_live_rain() -> dict:
 
         result = _parse_open_meteo(data)
 
-        # Cache for offline use
+        # Update in-memory cache
+        _LIVE_RAIN_MEMORY_CACHE = result
+        _LIVE_RAIN_CACHE_TIME = now
+
+        # Cache for offline disk use
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         with open(CACHE_FILE, "w") as f:
             json.dump(result, f, indent=2)
@@ -54,7 +66,12 @@ async def fetch_live_rain() -> dict:
 
     except Exception as e:
         # Fall back to cached data
-        return _load_cached_rain(str(e))
+        fallback = _load_cached_rain(str(e))
+        if fallback:
+            _LIVE_RAIN_MEMORY_CACHE = fallback
+            _LIVE_RAIN_CACHE_TIME = now
+        return fallback
+
 
 
 def _parse_open_meteo(data: dict) -> dict:

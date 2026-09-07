@@ -8,24 +8,30 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import FloodMap from './components/FloodMap';
 import AlertPanel from './components/AlertPanel';
+import { ToastContainer, useToasts } from './components/ToastNotifications';
 import {
   simulate,
   findRoute,
   fetchLiveRain,
   fetchNetwork,
+  getCachedSimulate,
+  getCachedRoute,
   type NodeDepth,
   type FloodSummary,
   type RouteResponse,
   type NetworkEdge,
   type PathCoord,
   type RainResponse,
+  type PotholeHazard,
 } from './lib/api';
 import {
   INITIAL_NODES,
   INITIAL_EDGES,
   CATCHMENT_NODES,
+  POTHOLE_HAZARDS,
   simulateLocal,
   findRouteLocal,
+  preWarmAllDestinationRoutes,
 } from './lib/networkData';
 
 export default function App() {
@@ -36,6 +42,7 @@ export default function App() {
 
   const [nodes, setNodes] = useState<NodeDepth[]>(INITIAL_NODES);
   const [edges, setEdges] = useState<NetworkEdge[]>(INITIAL_EDGES);
+  const [potholes, setPotholes] = useState<PotholeHazard[]>(POTHOLE_HAZARDS);
   const [summary, setSummary] = useState<FloodSummary | null>(null);
   const [rainData, setRainData] = useState<RainResponse | null>(null);
 
@@ -55,10 +62,28 @@ export default function App() {
   );
   const [loading, setLoading] = useState<boolean>(false);
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
-  const [mapCenter] = useState<[number, number]>([28.6280, 77.2197]);
-  const [zoom] = useState<number>(15);
+  const [mapCenter, setMapCenter] = useState<[number, number]>([28.6139, 77.2090]);
+  const [zoom, setZoom] = useState<number>(12);
+
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(false);
+  const { toasts, addToast, dismissToast } = useToasts();
 
   const debounceTimer = useRef<number | null>(null);
+  const simAbortController = useRef<AbortController | null>(null);
+  const routeAbortController = useRef<AbortController | null>(null);
+  const idlePrewarmTimer = useRef<number | null>(null);
+
+  // ─── Auto Emergency Simulation State ─────────────────────
+  const [isAutoSim, setIsAutoSim] = useState<boolean>(false);
+  const [autoSimStep, setAutoSimStep] = useState<number>(0);
+  const [autoSimMessage, setAutoSimMessage] = useState<string>('');
+  const [simAmbulanceCoord, setSimAmbulanceCoord] = useState<{
+    lat: number;
+    lon: number;
+    name?: string;
+    progress: number;
+  } | null>(null);
+  const autoSimTimersRef = useRef<number[]>([]);
 
   // ─── Initial Network & Weather Load ───────────────────────
   useEffect(() => {
@@ -68,6 +93,15 @@ export default function App() {
         const net = await fetchNetwork();
         if (net && net.edges && net.edges.length > 0) {
           setEdges(net.edges);
+          if (net.potholes && net.potholes.length > 0) {
+            setPotholes(net.potholes);
+          }
+          if (net.center) {
+            setMapCenter([net.center.lat, net.center.lon]);
+          }
+          if (net.zoom) {
+            setZoom(net.zoom);
+          }
           const list = Object.entries(net.nodes).map(([id, info]) => ({
             id,
             name: info.name || id,
@@ -76,7 +110,7 @@ export default function App() {
           setIsLiveConnected(true);
         }
       } catch (err) {
-        console.warn('Network fetch using cached 25-node topology:', err);
+        console.warn('Network fetch using cached topology:', err);
       }
 
       try {
@@ -95,13 +129,39 @@ export default function App() {
   // ─── Trigger Simulation ───────────────────────────────────
   const runSimulation = useCallback(
     async (rain: number, stormMinutes: number, blocked: string[]) => {
+      // 1. Instant Synchronous Cache Check (0ms latency, eliminates lag)
+      const cached = getCachedSimulate(rain, stormMinutes, blocked);
+      if (cached) {
+        setNodes(cached.nodes);
+        setSummary(cached.summary);
+        setIsLiveConnected(true);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Abort prior in-flight request to avoid backlog
+      if (simAbortController.current) {
+        simAbortController.current.abort();
+      }
+      simAbortController.current = new AbortController();
+
       setLoading(true);
       try {
-        const res = await simulate(rain, stormMinutes, blocked);
+        const res = await simulate(rain, stormMinutes, blocked, simAbortController.current.signal);
         setNodes(res.nodes);
         setSummary(res.summary);
         setIsLiveConnected(true);
-      } catch (err) {
+        if (res.summary) {
+          const crit = res.summary.risk_breakdown?.CRITICAL ?? 0;
+          addToast(
+            crit > 0
+              ? `⚠️ ${crit} CRITICAL zones detected — ${res.summary.flooded_nodes} flooded`
+              : `✅ Simulation updated — ${res.summary.flooded_nodes} nodes waterlogged`,
+            crit > 0 ? 'warning' : 'success'
+          );
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         console.warn('Simulation using local physical solver fallback:', err);
         const res = simulateLocal(rain, stormMinutes, blocked);
         setNodes(res.nodes);
@@ -110,26 +170,38 @@ export default function App() {
         setLoading(false);
       }
     },
-    []
+    [addToast]
   );
 
   // Debounced effect whenever rain intensity, storm duration, or blocked nodes change
   useEffect(() => {
+    // Check cache immediately for instant UI update
+    const instantCached = getCachedSimulate(rainMm, minutes, blockedNodes);
+    if (instantCached) {
+      setNodes(instantCached.nodes);
+      setSummary(instantCached.summary);
+    }
+
     if (debounceTimer.current) {
       window.clearTimeout(debounceTimer.current);
     }
     debounceTimer.current = window.setTimeout(() => {
       runSimulation(rainMm, minutes, blockedNodes);
-    }, 120);
+
+      // Defer background pre-warming when idle to prevent UI stutter
+      if (idlePrewarmTimer.current) window.clearTimeout(idlePrewarmTimer.current);
+      idlePrewarmTimer.current = window.setTimeout(() => {
+        preWarmAllDestinationRoutes(routeSource, rainMm, 15, minutes, blockedNodes);
+      }, 250);
+    }, 60);
 
     return () => {
       if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
+      if (idlePrewarmTimer.current) window.clearTimeout(idlePrewarmTimer.current);
     };
-  }, [rainMm, minutes, blockedNodes, runSimulation]);
+  }, [rainMm, minutes, blockedNodes, routeSource, runSimulation]);
 
   // ─── Immediate Route Invalidation ─────────────────────────
-  // Whenever rainfall, duration, blocked nodes, origin, or destination changes,
-  // immediately clear the existing route polyline to prevent stale routes.
   useEffect(() => {
     setRoutePath([]);
   }, [rainMm, minutes, blockedNodes, routeSource, routeTarget]);
@@ -143,29 +215,49 @@ export default function App() {
         return;
       }
 
-      // Invalidate old route polyline immediately while waiting for fresh solver response
-      setRoutePath([]);
+      // 1. Instant Cache Check for 0ms Route Response
+      const cached = getCachedRoute(src, tgt, rain, 15, stormMinutes, blocked, currentDepths);
+      if (cached) {
+        setRouteResult(cached);
+        setRoutePath(cached.reachable ? (cached.path_coords || []) : []);
+        return;
+      }
+
+      if (routeAbortController.current) {
+        routeAbortController.current.abort();
+      }
+      routeAbortController.current = new AbortController();
 
       try {
-        const res = await findRoute(src, tgt, rain, 15, stormMinutes, blocked, currentDepths);
+        const res = await findRoute(src, tgt, rain, 15, stormMinutes, blocked, currentDepths, routeAbortController.current.signal);
         setRouteResult(res);
         if (res.reachable) {
           setRoutePath(res.path_coords || []);
+          addToast(
+            res.is_rerouted
+              ? `🔄 Flood bypass found — ${res.distance_m}m via ${res.blocked_count} rerouted zones`
+              : `🚑 Safe route ready — ${res.distance_m}m · ETA ~${Math.ceil(res.eta_safe_sec / 60)}min`,
+            'success', '🚑'
+          );
         } else {
           setRoutePath([]);
+          addToast('⛔ No safe route — all corridors submerged!', 'error', '🚨');
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         console.warn('Routing using local Dijkstra fallback solver:', err);
         const res = findRouteLocal(src, tgt, rain, 15, stormMinutes, blocked, currentDepths);
         setRouteResult(res);
         if (res.reachable) {
           setRoutePath(res.path_coords || []);
+          addToast(`🚑 Safe route (local) — ${res.distance_m}m`, 'success');
         } else {
           setRoutePath([]);
+          addToast('⛔ No safe route — all corridors submerged!', 'error', '🚨');
         }
       }
     },
-    [showRoute]
+    [showRoute, addToast]
   );
 
   useEffect(() => {
@@ -179,34 +271,184 @@ export default function App() {
     }
   }, [showRoute, routeSource, routeTarget, rainMm, minutes, blockedNodes, nodes, runRouting]);
 
-  // ─── Multi-Node Choke Toggle Handler ──────────────────────
+  // ─── Auto Emergency Mission Simulation Controller ──────────
+  const stopAutoSim = useCallback(() => {
+    autoSimTimersRef.current.forEach(t => window.clearTimeout(t));
+    autoSimTimersRef.current = [];
+    setIsAutoSim(false);
+    setAutoSimStep(0);
+    setSimAmbulanceCoord(null);
+    setAutoSimMessage('');
+  }, []);
+
+  const startAutoSim = useCallback(() => {
+    // Clear any existing active simulation timers
+    autoSimTimersRef.current.forEach(t => window.clearTimeout(t));
+    autoSimTimersRef.current = [];
+
+    setIsAutoSim(true);
+    setAutoSimStep(1);
+    setAutoSimMessage('⛈️ STAGE 1: Flash Storm Ingress (65 mm/hr) — Cloudburst over Central Delhi. Low-lying Minto Sag submerging (>160cm)...');
+
+    // Stage 1: Flash storm setup
+    setRainMm(65);
+    setMinutes(45);
+    setBlockedNodes([]);
+    setChokeMode(false);
+    setRouteSource('cp_outer_n');
+    setRouteTarget('aiims_delhi');
+    setShowRoute(true);
+    setSimAmbulanceCoord(null);
+
+    // Stage 2: Emergency Alert Ingress (T = 2.4s)
+    const t2 = window.setTimeout(() => {
+      setAutoSimStep(2);
+      setAutoSimMessage('🚨 STAGE 2: Emergency 108 Dispatch Ingress! Critical Cardiac SOS at Connaught Place Outer Circle.');
+    }, 2400);
+    autoSimTimersRef.current.push(t2);
+
+    // Stage 3: Agastya Model Computes Safe Detour (T = 4.8s)
+    const t3 = window.setTimeout(() => {
+      setAutoSimStep(3);
+      setAutoSimMessage('🧠 STAGE 3: Agastya AI Detour Active! Minto Underpass is 165cm underwater. Dynamic safe route computed via Barakhamba, Tolstoy & Ring Road.');
+    }, 4800);
+    autoSimTimersRef.current.push(t3);
+
+    // Stage 4: Live Ambulance Transit (T = 7.2s to 18.0s)
+    const t4 = window.setTimeout(() => {
+      setAutoSimStep(4);
+      setAutoSimMessage('🚑 STAGE 4: Ambulance DL-1R-9988 in transit to AIIMS Apex Trauma Centre (Safe Speed 35 km/h, avoiding 3 flooded zones)...');
+
+      // Pre-calculated route coordinate waypoints to AIIMS Apex Trauma Centre
+      const waypoints = [
+        { lat: 28.6335, lon: 77.2185, name: 'Connaught Place Outer Circle North' },
+        { lat: 28.6315, lon: 77.2228, name: 'Kasturba Gandhi Marg Crossing' },
+        { lat: 28.6295, lon: 77.2272, name: 'Barakhamba Road Junction' },
+        { lat: 28.6260, lon: 77.2250, name: 'Tolstoy Marg Crossing' },
+        { lat: 28.6225, lon: 77.2185, name: 'Janpath Junction' },
+        { lat: 28.6180, lon: 77.2210, name: 'Windsor Place / Ashoka Road' },
+        { lat: 28.6129, lon: 77.2295, name: 'India Gate Outer C-Hexagon' },
+        { lat: 28.6020, lon: 77.2280, name: 'Shahjahan Road Ingress' },
+        { lat: 28.5925, lon: 77.2250, name: 'Lodhi Road Junction' },
+        { lat: 28.5810, lon: 77.2200, name: 'INA Market / Dilli Haat Curve' },
+        { lat: 28.5710, lon: 77.2120, name: 'AIIMS Ring Road Flyover' },
+        { lat: 28.5672, lon: 77.2100, name: 'AIIMS New Delhi (Apex Trauma Centre)' },
+      ];
+
+      const totalPoints = waypoints.length;
+      waypoints.forEach((pt, idx) => {
+        const stepDelay = 500 + (idx * 900);
+        const transitTimer = window.setTimeout(() => {
+          const progress = Math.min(100, Math.round(((idx + 1) / totalPoints) * 100));
+          setSimAmbulanceCoord({
+            lat: pt.lat,
+            lon: pt.lon,
+            name: pt.name,
+            progress,
+          });
+        }, stepDelay);
+        autoSimTimersRef.current.push(transitTimer);
+      });
+    }, 7200);
+    autoSimTimersRef.current.push(t4);
+
+    // Stage 5: Mission Accomplished & User Handover (T = 18.0s)
+    const t5 = window.setTimeout(() => {
+      setAutoSimStep(5);
+      setAutoSimMessage('✅ STAGE 5: MISSION ACCOMPLISHED! Patient safely delivered to AIIMS Apex Trauma Centre in 8.4 mins. You can now select any destination or tweak sliders to test the model.');
+      setSimAmbulanceCoord({
+        lat: 28.5672,
+        lon: 77.2100,
+        name: 'AIIMS New Delhi (Apex Trauma Centre)',
+        progress: 100,
+      });
+    }, 18000);
+    autoSimTimersRef.current.push(t5);
+  }, []);
+
+  // ─── Node Click & Route Selection Handlers ──────────────────
+  const handleSelectOrigin = (nodeId: string) => {
+    if (isAutoSim) stopAutoSim();
+    setRouteSource(nodeId);
+    setShowRoute(true);
+  };
+
+  const handleSelectTarget = (nodeId: string) => {
+    if (isAutoSim) stopAutoSim();
+    setRouteTarget(nodeId);
+    setShowRoute(true);
+  };
+
+  const handleSwapRoute = () => {
+    if (isAutoSim) stopAutoSim();
+    const temp = routeSource;
+    setRouteSource(routeTarget);
+    setRouteTarget(temp);
+    setShowRoute(true);
+  };
+
+  const handleClearRoute = () => {
+    if (isAutoSim) stopAutoSim();
+    setShowRoute(false);
+    setRoutePath([]);
+    setRouteResult(null);
+  };
+
+  // ─── Unified Node Click Handler ───────────────────────────
   const handleNodeClick = (nodeId: string) => {
-    // If the node is currently blocked, clicking it ALWAYS unblocks it immediately
-    if (blockedNodes.includes(nodeId)) {
-      setBlockedNodes(prev => prev.filter(id => id !== nodeId));
+    if (isAutoSim) stopAutoSim();
+    // If choke mode is active, handle manhole block/unblock
+    if (chokeMode) {
+      if (blockedNodes.includes(nodeId)) {
+        setBlockedNodes(prev => prev.filter(id => id !== nodeId));
+        return;
+      }
+      if (nodeId === routeSource || nodeId === routeTarget) {
+        alert(`🛡️ Routing endpoint '${CATCHMENT_NODES[nodeId]?.name || nodeId}' cannot be blocked in choke mode.`);
+        return;
+      }
+      setBlockedNodes(prev => [...prev, nodeId]);
       return;
     }
 
-    // When Choke Simulation is OFF, clicking a node must NOT block it
-    if (!chokeMode) {
+    // Interactive 2-Point Route Selection when clicking on map:
+    // If route is not currently active, set this node as Start (Origin) and turn on routing
+    if (!showRoute) {
+      setRouteSource(nodeId);
+      setShowRoute(true);
       return;
     }
 
-    // Invariant: routing origin & destination cannot be choked
-    if (nodeId === routeSource || nodeId === routeTarget) {
-      alert(`🛡️ Routing endpoint '${CATCHMENT_NODES[nodeId]?.name || nodeId}' cannot be blocked in choke mode.`);
+    // If route is active:
+    // If clicking the current source, no-op or re-confirm
+    if (nodeId === routeSource) {
       return;
     }
 
-    setBlockedNodes(prev => [...prev, nodeId]);
+    // Otherwise, set as Destination and compute shortest/safest route immediately
+    setRouteTarget(nodeId);
+  };
+
+  // ─── Direct Pothole / Manhole Choke Toggle Handler ─────────
+  const handleToggleBlockNode = (nodeId: string) => {
+    if (isAutoSim) stopAutoSim();
+    setBlockedNodes(prev => {
+      if (prev.includes(nodeId)) {
+        return prev.filter(id => id !== nodeId);
+      } else {
+        return [...prev, nodeId];
+      }
+    });
   };
 
   const handleClearBlockedNodes = () => {
+    if (isAutoSim) stopAutoSim();
     setBlockedNodes([]);
   };
 
   // ─── Guided Demo Mode Presets ─────────────────────────────
   const setDemoPreset = (step: number) => {
+    if (isAutoSim) stopAutoSim();
     switch (step) {
       case 1: // Dry Baseline (0 mm/hr, all depths = 0)
         setRainMm(0);
@@ -229,20 +471,13 @@ export default function App() {
         setShowRoute(false);
         setChokeMode(false);
         break;
-      case 4: // Multi-Node Choke
+      case 4: // Safe AI Route Bypass to Hospital
         setRainMm(60);
         setMinutes(30);
-        setChokeMode(true);
-        setBlockedNodes(['minto_bridge_center', 'ddu_marg_west']);
-        setShowRoute(false);
-        break;
-      case 5: // Safe Route Bypass
-        setRainMm(60);
-        setMinutes(30);
-        setChokeMode(true);
-        setBlockedNodes(['minto_bridge_center']);
+        setBlockedNodes([]);
+        setChokeMode(false);
         setRouteSource('cp_outer_n');
-        setRouteTarget('barakhamba_junction');
+        setRouteTarget('aiims_delhi');
         setShowRoute(true);
         break;
       default: // Reset Simulation to baseline
@@ -270,28 +505,48 @@ export default function App() {
       {/* ─── Left Sidebar ─── */}
       <Sidebar
         rainMm={rainMm}
-        onRainChange={setRainMm}
+        onRainChange={(v) => {
+          if (isAutoSim) stopAutoSim();
+          setRainMm(v);
+        }}
         minutes={minutes}
-        onMinutesChange={setMinutes}
+        onMinutesChange={(v) => {
+          if (isAutoSim) stopAutoSim();
+          setMinutes(v);
+        }}
         summary={summary}
         rainData={rainData}
         chokeMode={chokeMode}
         onChokeModeToggle={() => {
+          if (isAutoSim) stopAutoSim();
           setChokeMode(prev => !prev);
         }}
         blockedNodes={blockedNodes}
         onClearBlockedNodes={handleClearBlockedNodes}
         onUnblockNode={handleNodeClick}
         showRoute={showRoute}
-        onRouteToggle={() => setShowRoute(prev => !prev)}
+        onRouteToggle={() => {
+          if (isAutoSim) stopAutoSim();
+          setShowRoute(prev => !prev);
+        }}
         routeSource={routeSource}
         routeTarget={routeTarget}
-        onRouteSourceChange={setRouteSource}
-        onRouteTargetChange={setRouteTarget}
+        onRouteSourceChange={(src) => {
+          if (isAutoSim) stopAutoSim();
+          setRouteSource(src);
+        }}
+        onRouteTargetChange={(tgt) => {
+          if (isAutoSim) stopAutoSim();
+          setRouteTarget(tgt);
+        }}
         routeResult={routeResult}
         nodes={nodes}
         nodeList={nodeList}
         loading={loading}
+        isAutoSim={isAutoSim}
+        autoSimStep={autoSimStep}
+        onStartAutoSim={startAutoSim}
+        onStopAutoSim={stopAutoSim}
       />
 
       {/* ─── Main Content ─── */}
@@ -370,11 +625,34 @@ export default function App() {
                   {rainData?.current_rain_mm !== undefined ? `${rainData.current_rain_mm} mm/hr` : `${rainMm} mm/hr`}
                 </span>
               </div>
+
+              {/* Collapse/Expand Header Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsHeaderCollapsed(prev => !prev)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: 6,
+                  color: '#cbd5e1',
+                  fontSize: 10.5,
+                  fontWeight: 700,
+                  padding: '4px 9px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                }}
+                title={isHeaderCollapsed ? 'Expand Dashboard Header Bar' : 'Collapse Header Bar for Full-Screen View'}
+              >
+                <span>{isHeaderCollapsed ? '▼ Expand Bar' : '▲ Collapse Bar'}</span>
+              </button>
             </div>
           </div>
 
-          {/* Top KPI Metrics Cards & Guided Demo Quick Action Bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          {/* Top KPI Metrics Cards & Guided Demo Quick Action Bar (Collapsible) */}
+          {!isHeaderCollapsed && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               {/* KPI 1: Rain */}
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -405,10 +683,10 @@ export default function App() {
                 <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>Flooded Sectors</span>
                 <span style={{ fontSize: 13, fontWeight: 800, color: floodedCount > 0 ? '#f97316' : '#10b981' }}>{floodedCount}</span>
               </div>
-              {/* KPI 6: Choked Nodes */}
+              {/* KPI 6: Network Density */}
               <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, padding: '4px 10px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>Blocked Chokes</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: blockedNodes.length > 0 ? '#dc2626' : '#94a3b8' }}>{blockedNodes.length}</span>
+                <span style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase' }}>Network Nodes</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#38bdf8' }}>{nodes.length}</span>
               </div>
             </div>
 
@@ -426,7 +704,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setDemoPreset(2)}
-                style={{ padding: '3px 7px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: rainMm === 35 && blockedNodes.length === 0 ? '#3b82f6' : 'rgba(255,255,255,0.06)', color: 'white', cursor: 'pointer' }}
+                style={{ padding: '3px 7px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: rainMm === 35 && !showRoute ? '#3b82f6' : 'rgba(255,255,255,0.06)', color: 'white', cursor: 'pointer' }}
                 title="Scenario 2: Moderate Rain 35 mm/hr"
               >
                 2. Moderate
@@ -434,7 +712,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setDemoPreset(3)}
-                style={{ padding: '3px 7px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: rainMm === 75 ? '#3b82f6' : 'rgba(255,255,255,0.06)', color: 'white', cursor: 'pointer' }}
+                style={{ padding: '3px 7px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(255,255,255,0.12)', background: rainMm === 75 && !showRoute ? '#3b82f6' : 'rgba(255,255,255,0.06)', color: 'white', cursor: 'pointer' }}
                 title="Scenario 3: Monsoon Downpour 75 mm/hr (>30cm at Minto Sag)"
               >
                 3. Downpour
@@ -442,42 +720,11 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setDemoPreset(4)}
-                style={{ padding: '3px 7px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(239,68,68,0.4)', background: chokeMode && blockedNodes.length > 0 ? '#ef4444' : 'rgba(239,68,68,0.15)', color: 'white', cursor: 'pointer' }}
-                title="Scenario 4: Multi-Node Manhole Choke Simulation"
-              >
-                4. Choke
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoPreset(5)}
                 style={{ padding: '3px 7px', fontSize: 10, fontWeight: 700, borderRadius: 6, border: '1px solid rgba(16,185,129,0.4)', background: showRoute ? '#10b981' : 'rgba(16,185,129,0.15)', color: 'white', cursor: 'pointer' }}
-                title="Scenario 5: Safe Ambulance Route avoiding Minto Underpass"
+                title="Scenario 4: Safe Ambulance Route avoiding Minto Underpass to AIIMS"
               >
-                5. Route
+                4. Safe Route
               </button>
-              {blockedNodes.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleClearBlockedNodes}
-                  style={{
-                    padding: '3px 8px',
-                    fontSize: 10,
-                    fontWeight: 800,
-                    borderRadius: 6,
-                    border: '1px solid rgba(239, 68, 68, 0.5)',
-                    background: '#dc2626',
-                    color: 'white',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 3,
-                  }}
-                  title="Clear all currently blocked nodes and restore baseline drainage"
-                >
-                  <span>🧹</span>
-                  <span>CLEAR CHOKES</span>
-                </button>
-              )}
               <button
                 type="button"
                 onClick={() => setDemoPreset(0)}
@@ -491,87 +738,14 @@ export default function App() {
                   color: '#e2e8f0',
                   cursor: 'pointer',
                 }}
-                title="Reset simulation parameters, rain, blocked nodes and route"
+                title="Reset simulation parameters, rain, and route"
               >
-                ↺ RESET SIMULATION
+                ↺ RESET
               </button>
             </div>
-          </div>
-        </header>
-
-        {/* Choke Banner Notification */}
-        {(chokeMode || blockedNodes.length > 0) && (
-          <div
-            className="choke-mode-indicator animate-scale-in"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              flexWrap: 'wrap',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 800 }}>🚨 Choke Simulation</span>
-              {blockedNodes.length === 0 ? (
-                <span style={{ opacity: 0.9, fontSize: 11 }}>
-                  Click any manhole markers on the map to simulate silt clogs. Multiple manholes can be blocked at once.
-                </span>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700 }}>Blocked ({blockedNodes.length}):</span>
-                  {blockedNodes.map(id => {
-                    const nodeName = nodes.find(n => n.node_id === id)?.name || id;
-                    return (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => handleNodeClick(id)}
-                        title={`Click to UNBLOCK ${nodeName}`}
-                        style={{
-                          padding: '2px 8px',
-                          borderRadius: 12,
-                          background: 'rgba(239, 68, 68, 0.25)',
-                          border: '1px solid #ef4444',
-                          color: '#fecaca',
-                          fontSize: 10,
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          transition: 'all 0.15s',
-                        }}
-                      >
-                        <span>🚫 {nodeName}</span>
-                        <span style={{ fontWeight: 900, color: '#ffffff' }}>✕</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            {blockedNodes.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearBlockedNodes}
-                style={{
-                  background: 'white',
-                  color: '#dc2626',
-                  border: 'none',
-                  borderRadius: 12,
-                  padding: '3px 10px',
-                  fontSize: 10,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              >
-                🧹 Clear All
-              </button>
-            )}
           </div>
         )}
+      </header>
 
         {/* Route Safety Warning Banner */}
         {showRoute && routeResult && !routeResult.reachable && (
@@ -616,15 +790,29 @@ export default function App() {
           <FloodMap
             nodes={nodes}
             edges={edges}
+            potholes={potholes}
             routePath={routePath}
+            normalPathCoords={routeResult?.normal_path_coords || []}
+            routeResult={routeResult}
             showRoute={showRoute}
             chokeMode={chokeMode}
             blockedNodes={blockedNodes}
             onNodeClick={handleNodeClick}
+            onSelectOrigin={handleSelectOrigin}
+            onSelectTarget={handleSelectTarget}
+            onSwapRoute={handleSwapRoute}
+            onClearRoute={handleClearRoute}
             center={mapCenter}
             zoom={zoom}
             routeSource={routeSource}
             routeTarget={routeTarget}
+            isAutoSim={isAutoSim}
+            autoSimStep={autoSimStep}
+            autoSimMessage={autoSimMessage}
+            simAmbulanceCoord={simAmbulanceCoord}
+            onStopAutoSim={stopAutoSim}
+            onClearBlockedNodes={handleClearBlockedNodes}
+            onToggleBlockNode={handleToggleBlockNode}
           />
 
           {/* Map Color Legend */}
@@ -704,6 +892,8 @@ export default function App() {
           </div>
         </footer>
       </main>
+      {/* ─── Toast Notification System ─── */}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

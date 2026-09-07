@@ -124,9 +124,20 @@ const LEVEL_STYLE = {
 export default function AlertPanel({ nodes, routeResult, showRoute }: AlertPanelProps) {
   const [alerts, setAlerts] = useState<Alert[]>(() => buildAlerts(nodes));
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [acknowledged, setAcknowledged] = useState<Set<string>>(new Set());
   const [minimized, setMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState<'alerts' | 'route' | 'pysewer'>('alerts');
   const [filterLevel, setFilterLevel] = useState<'all' | 'critical' | 'high'>('all');
+
+  // Priority badge helper
+  function getPriorityBadge(level: Alert['level']) {
+    switch (level) {
+      case 'critical': return { cls: 'priority-badge priority-p1', label: 'P1', icon: '🔔' };
+      case 'high':     return { cls: 'priority-badge priority-p2', label: 'P2', icon: '' };
+      case 'medium':   return { cls: 'priority-badge priority-p3', label: 'P3', icon: '' };
+      default:         return { cls: 'priority-badge priority-p4', label: 'P4', icon: '' };
+    }
+  }
 
   // Draggable position state
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -709,24 +720,33 @@ export default function AlertPanel({ nodes, routeResult, showRoute }: AlertPanel
             ) : (
               filteredAlerts.map(alert => {
                 const style = LEVEL_STYLE[alert.level];
+                const pBadge = getPriorityBadge(alert.level);
+                const isAcked = acknowledged.has(alert.id);
                 return (
                   <div
                     key={alert.id}
+                    className="alert-enter"
                     style={{
                       position: 'relative',
                       padding: '10px 12px',
                       borderRadius: 10,
-                      background: style.bg,
-                      border: `1px solid ${style.border}`,
-                      boxShadow: style.glow,
+                      background: isAcked ? 'rgba(255,255,255,0.03)' : style.bg,
+                      border: `1px solid ${isAcked ? 'rgba(255,255,255,0.06)' : style.border}`,
+                      boxShadow: isAcked ? 'none' : style.glow,
                       display: 'flex',
                       flexDirection: 'column',
                       gap: 4,
-                      transition: 'all 0.15s',
+                      transition: 'all 0.2s',
+                      opacity: isAcked ? 0.55 : 1,
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                        {/* Priority Badge */}
+                        <span className={pBadge.cls} title={`Priority ${pBadge.label}`}>
+                          {pBadge.label}
+                        </span>
+                        {pBadge.icon && <span style={{ fontSize: 10 }}>{pBadge.icon}</span>}
                         <span
                           style={{
                             fontSize: 9,
@@ -740,30 +760,42 @@ export default function AlertPanel({ nodes, routeResult, showRoute }: AlertPanel
                         >
                           {style.label}
                         </span>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>{alert.title}</span>
+                        <span style={{ fontSize: 11.5, fontWeight: 700, color: '#f1f5f9' }}>{alert.title}</span>
                       </div>
 
-                      {/* Dismiss button */}
-                      <button
-                        type="button"
-                        onClick={e => dismiss(alert.id, e)}
-                        title="Dismiss this alert"
-                        style={{
-                          background: 'rgba(255,255,255,0.06)',
-                          border: 'none',
-                          color: '#94a3b8',
-                          width: 18,
-                          height: 18,
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 12,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        ×
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {/* Acknowledge button */}
+                        <button
+                          type="button"
+                          className={`ack-btn${isAcked ? ' acked' : ''}`}
+                          onClick={e => { e.stopPropagation(); setAcknowledged(prev => new Set([...prev, alert.id])); }}
+                          disabled={isAcked}
+                          title={isAcked ? 'Acknowledged' : 'Acknowledge this alert'}
+                        >
+                          {isAcked ? '✓ Acked' : 'Ack'}
+                        </button>
+                        {/* Dismiss button */}
+                        <button
+                          type="button"
+                          onClick={e => dismiss(alert.id, e)}
+                          title="Dismiss this alert"
+                          style={{
+                            background: 'rgba(255,255,255,0.06)',
+                            border: 'none',
+                            color: '#94a3b8',
+                            width: 18,
+                            height: 18,
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 12,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
 
                     <div style={{ fontSize: 11, color: '#cbd5e1', lineHeight: 1.35 }}>

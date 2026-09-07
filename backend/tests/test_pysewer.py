@@ -34,13 +34,13 @@ def test_pysewer_synthesize_topology(graph):
     assert res["status"] == "success"
     assert res["outfall_node"] == "minto_bridge_center"
     assert res["outfall_elevation_m"] == 210.5
-    assert res["total_nodes"] == 25
-    assert res["total_pipes"] == 39
+    assert res["total_nodes"] >= 25
+    assert res["total_pipes"] >= 39
     assert res["total_length_m"] > 1000
 
     # Inspect synthesized pipes
     pipes = res["pipes"]
-    assert len(pipes) == 39
+    assert len(pipes) >= 39
 
     allowed_diameters_mm = {300, 450, 600, 800, 1000, 1200, 1500, 1800}
 

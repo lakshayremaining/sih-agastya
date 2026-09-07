@@ -273,16 +273,19 @@ def _json_to_graph(data: dict) -> nx.Graph:
     G = nx.Graph()
 
     for node_id, attrs in data["nodes"].items():
-        G.add_node(node_id, **attrs)
+        G.add_node(str(node_id), **attrs)
 
     for edge in data["edges"]:
-        G.add_edge(
-            edge["u"], edge["v"],
-            length=edge["length"],
-            slope=edge["slope"],
-            diameter=edge["diameter"],
-            roughness=edge["roughness"],
-        )
+        u = edge.get("from") or edge.get("u") or edge.get("from_id")
+        v = edge.get("to") or edge.get("v") or edge.get("to_id")
+        if u and v:
+            G.add_edge(
+                str(u), str(v),
+                length=edge.get("length", 100.0),
+                slope=edge.get("slope", 0.002),
+                diameter=edge.get("diameter", 0.6),
+                roughness=edge.get("roughness", 0.013),
+            )
 
     return G
 
@@ -297,6 +300,7 @@ def get_node_coordinates(G: nx.Graph) -> dict[str, dict]:
             "lon": data.get("lon", 0),
             "name": data.get("name", str(n)),
             "elevation": data.get("elevation", 0),
+            "role": data.get("role", "junction"),
         }
     return coords
 
@@ -305,8 +309,8 @@ def get_edge_list(G: nx.Graph) -> list[dict]:
     """Extract edge list with coordinates (for frontend map display)."""
     edges = []
     for u, v, data in G.edges(data=True):
-        u_data = G.nodes[u]
-        v_data = G.nodes[v]
+        u_data = G.nodes.get(u, {})
+        v_data = G.nodes.get(v, {})
         edges.append({
             "from_id": str(u),
             "to_id": str(v),
@@ -315,6 +319,20 @@ def get_edge_list(G: nx.Graph) -> list[dict]:
             "to_lat": v_data.get("lat", 0),
             "to_lon": v_data.get("lon", 0),
             "length": data.get("length", 0),
-            "diameter": data.get("diameter", 0.3),
+            "diameter": data.get("diameter", 0.8),
         })
     return edges
+
+
+def get_potholes_list() -> list[dict]:
+    """Extract cached pothole hazards across Delhi NCR."""
+    cache_file = CACHE_DIR / "network.json"
+    if cache_file.exists():
+        try:
+            with open(cache_file) as f:
+                data = json.load(f)
+                return data.get("potholes", [])
+        except Exception:
+            pass
+    return []
+

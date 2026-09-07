@@ -118,11 +118,33 @@ class SimulateResponse(BaseModel):
     rain_mm: float
     minutes: int
 
+class AlternateRouteInfo(BaseModel):
+    """Information about an alternative route considered by the routing engine."""
+    id: str
+    name: str
+    path: list[str]
+    path_coords: Optional[list[dict]] = []
+    distance_m: float
+    max_depth_cm: float
+    avg_depth_cm: float
+    flooded_nodes_count: int
+    flooded_nodes: Optional[list[str]] = []
+    status: str
+    is_safe: bool
+    reason_rejected: str
+
 class RouteResponse(BaseModel):
     """Response from /api/route."""
     path: list[str]
     path_coords: list[dict]
+    normal_path: Optional[list[str]] = []
+    normal_path_coords: Optional[list[dict]] = []
     distance_m: float
+    normal_distance_m: Optional[float] = 0.0
+    safe_distance_m: Optional[float] = 0.0
+    normal_max_depth_cm: Optional[float] = 0.0
+    safe_max_depth_cm: Optional[float] = 0.0
+    is_rerouted: Optional[bool] = False
     blocked_nodes: list[str]
     blocked_count: int
     eta_normal_sec: float
@@ -133,6 +155,7 @@ class RouteResponse(BaseModel):
     detour_m: Optional[float] = 0.0
     eta_sec: Optional[float] = 0.0
     avoided_segments: Optional[int] = 0
+    alternate_routes: Optional[list[AlternateRouteInfo]] = []
     reachable: bool
     reason: Optional[str] = None
     origin_depth_cm: Optional[float] = None
