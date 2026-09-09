@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import FloodMap from './components/FloodMap';
 import AlertPanel from './components/AlertPanel';
+import CalculationDrawer from './components/CalculationDrawer';
 import { ToastContainer, useToasts } from './components/ToastNotifications';
 import {
   simulate,
@@ -49,8 +50,8 @@ export default function App() {
   const [chokeMode, setChokeMode] = useState<boolean>(false);
 
   const [showRoute, setShowRoute] = useState<boolean>(false);
-  const [routeSource, setRouteSource] = useState<string>('cp_outer_n');
-  const [routeTarget, setRouteTarget] = useState<string>('barakhamba_junction');
+  const [routeSource, setRouteSource] = useState<string>('moolchand_flyover_w');
+  const [routeTarget, setRouteTarget] = useState<string>('cp_outer_s');
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [routePath, setRoutePath] = useState<PathCoord[]>([]);
 
@@ -64,6 +65,7 @@ export default function App() {
   const [isLiveConnected, setIsLiveConnected] = useState<boolean>(false);
   const [mapCenter, setMapCenter] = useState<[number, number]>([28.6139, 77.2090]);
   const [zoom, setZoom] = useState<number>(12);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
 
   const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(false);
   const { toasts, addToast, dismissToast } = useToasts();
@@ -288,56 +290,50 @@ export default function App() {
 
     setIsAutoSim(true);
     setAutoSimStep(1);
-    setAutoSimMessage('⛈️ STAGE 1: Flash Storm Ingress (65 mm/hr) — Cloudburst over Central Delhi. Low-lying Minto Sag submerging (>160cm)...');
+    setAutoSimMessage(`⛈️ STAGE 1: Storm Simulation Active (${rainMm} mm/hr for ${minutes} min) — Calculating hydrologic runoff & catchment ponding...`);
 
-    // Stage 1: Flash storm setup
-    setRainMm(65);
-    setMinutes(45);
+    // Stage 1: Active storm setup using slider values
     setBlockedNodes([]);
     setChokeMode(false);
-    setRouteSource('cp_outer_n');
-    setRouteTarget('aiims_delhi');
+    setRouteSource('moolchand_flyover_w');
+    setRouteTarget('cp_outer_s');
     setShowRoute(true);
     setSimAmbulanceCoord(null);
 
     // Stage 2: Emergency Alert Ingress (T = 2.4s)
     const t2 = window.setTimeout(() => {
       setAutoSimStep(2);
-      setAutoSimMessage('🚨 STAGE 2: Emergency 108 Dispatch Ingress! Critical Cardiac SOS at Connaught Place Outer Circle.');
+      setAutoSimMessage(`🚨 STAGE 2: Emergency 108 Dispatch Ingress! Ambulance dispatched from Moolchand Flyover West to CP Outer Circle South (${rainMm} mm/hr rain).`);
     }, 2400);
     autoSimTimersRef.current.push(t2);
 
     // Stage 3: Agastya Model Computes Safe Detour (T = 4.8s)
     const t3 = window.setTimeout(() => {
       setAutoSimStep(3);
-      setAutoSimMessage('🧠 STAGE 3: Agastya AI Detour Active! Minto Underpass is 165cm underwater. Dynamic safe route computed via Barakhamba, Tolstoy & Ring Road.');
+      setAutoSimMessage(`🧠 STAGE 3: Agastya AI Routing Active! Dynamic safe route computed from Moolchand Flyover West via Ring Road & Janpath (${rainMm} mm/hr intensity, ${minutes} min duration).`);
     }, 4800);
     autoSimTimersRef.current.push(t3);
 
     // Stage 4: Live Ambulance Transit (T = 7.2s to 18.0s)
     const t4 = window.setTimeout(() => {
       setAutoSimStep(4);
-      setAutoSimMessage('🚑 STAGE 4: Ambulance DL-1R-9988 in transit to AIIMS Apex Trauma Centre (Safe Speed 35 km/h, avoiding 3 flooded zones)...');
+      setAutoSimMessage(`🚑 STAGE 4: Ambulance DL-1R-9988 in transit from Moolchand Flyover West to CP Outer Circle South (${rainMm} mm/hr storm environment)...`);
 
-      // Pre-calculated route coordinate waypoints to AIIMS Apex Trauma Centre
+      // Pre-calculated route coordinate waypoints from Moolchand Flyover West to CP Outer Circle South
       const waypoints = [
-        { lat: 28.6335, lon: 77.2185, name: 'Connaught Place Outer Circle North' },
-        { lat: 28.6315, lon: 77.2228, name: 'Kasturba Gandhi Marg Crossing' },
-        { lat: 28.6295, lon: 77.2272, name: 'Barakhamba Road Junction' },
-        { lat: 28.6260, lon: 77.2250, name: 'Tolstoy Marg Crossing' },
-        { lat: 28.6225, lon: 77.2185, name: 'Janpath Junction' },
-        { lat: 28.6180, lon: 77.2210, name: 'Windsor Place / Ashoka Road' },
+        { lat: 28.5652, lon: 77.2341, name: 'Moolchand Flyover West' },
+        { lat: 28.5720, lon: 77.2380, name: 'Lajpat Nagar Ring Road' },
+        { lat: 28.5880, lon: 77.2530, name: 'Hazrat Nizamuddin Railway Flyover' },
+        { lat: 28.6020, lon: 77.2440, name: 'Sunder Nagar / Zoo Arc' },
         { lat: 28.6129, lon: 77.2295, name: 'India Gate Outer C-Hexagon' },
-        { lat: 28.6020, lon: 77.2280, name: 'Shahjahan Road Ingress' },
-        { lat: 28.5925, lon: 77.2250, name: 'Lodhi Road Junction' },
-        { lat: 28.5810, lon: 77.2200, name: 'INA Market / Dilli Haat Curve' },
-        { lat: 28.5710, lon: 77.2120, name: 'AIIMS Ring Road Flyover' },
-        { lat: 28.5672, lon: 77.2100, name: 'AIIMS New Delhi (Apex Trauma Centre)' },
+        { lat: 28.6180, lon: 77.2210, name: 'Windsor Place Ingress' },
+        { lat: 28.6225, lon: 77.2185, name: 'Janpath Junction' },
+        { lat: 28.6275, lon: 77.2190, name: 'CP Outer Circle South' },
       ];
 
       const totalPoints = waypoints.length;
       waypoints.forEach((pt, idx) => {
-        const stepDelay = 500 + (idx * 900);
+        const stepDelay = 500 + (idx * 1300);
         const transitTimer = window.setTimeout(() => {
           const progress = Math.min(100, Math.round(((idx + 1) / totalPoints) * 100));
           setSimAmbulanceCoord({
@@ -355,16 +351,17 @@ export default function App() {
     // Stage 5: Mission Accomplished & User Handover (T = 18.0s)
     const t5 = window.setTimeout(() => {
       setAutoSimStep(5);
-      setAutoSimMessage('✅ STAGE 5: MISSION ACCOMPLISHED! Patient safely delivered to AIIMS Apex Trauma Centre in 8.4 mins. You can now select any destination or tweak sliders to test the model.');
+      setAutoSimMessage(`✅ STAGE 5: MISSION ACCOMPLISHED! Ambulance safely reached CP Outer Circle South under ${rainMm} mm/hr storm conditions.`);
       setSimAmbulanceCoord({
-        lat: 28.5672,
-        lon: 77.2100,
-        name: 'AIIMS New Delhi (Apex Trauma Centre)',
+        lat: 28.6275,
+        lon: 77.2190,
+        name: 'CP Outer Circle South',
         progress: 100,
       });
     }, 18000);
     autoSimTimersRef.current.push(t5);
-  }, []);
+  }, [rainMm, minutes]);
+  void startAutoSim;
 
   // ─── Node Click & Route Selection Handlers ──────────────────
   const handleSelectOrigin = (nodeId: string) => {
@@ -446,6 +443,62 @@ export default function App() {
     setBlockedNodes([]);
   };
 
+  // ─── Active Route Choke Handler (Right-Center HUD) ───────
+  const handleChokeActiveRoute = useCallback(() => {
+    if (isAutoSim) stopAutoSim();
+
+    if (!routeResult) {
+      addToast('⚠️ No active route to choke. Please select a route first.', 'warning');
+      return;
+    }
+
+    const pathNodes: string[] = routeResult.path_nodes || routeResult.path || (routeResult.path_coords || []).map((p: PathCoord) => p.node_id);
+    if (pathNodes.length === 0) {
+      addToast('⚠️ No active route to choke. Please select a route first.', 'warning');
+      return;
+    }
+
+    const blockedSet = new Set(blockedNodes);
+
+    // Filter eligible intermediate nodes along current route that are not yet choked
+    let eligible = pathNodes.filter((id: string, idx: number) => {
+      if (blockedSet.has(id)) return false;
+      if (id === routeSource || id === routeTarget) return false;
+      if (idx === 0 || idx === pathNodes.length - 1) return false;
+      return true;
+    });
+
+    // If no intermediate nodes left, try any unblocked node on path except origin
+    if (eligible.length === 0) {
+      eligible = pathNodes.filter((id: string) => !blockedSet.has(id) && id !== routeSource);
+    }
+
+    if (eligible.length === 0) {
+      addToast('⚠️ All available nodes on this corridor are already choked!', 'warning');
+      return;
+    }
+
+    // Pick node with maximum depth or first eligible node
+    let targetNode = eligible[0];
+    let maxD = -1;
+    for (const nid of eligible) {
+      const nodeObj = nodes.find(n => n.node_id === nid);
+      const depth = nodeObj ? nodeObj.depth_cm : 0;
+      if (depth > maxD) {
+        maxD = depth;
+        targetNode = nid;
+      }
+    }
+
+    const newBlocked = [...blockedNodes, targetNode];
+    setBlockedNodes(newBlocked);
+
+    const nodeInfo = nodes.find(n => n.node_id === targetNode);
+    const nodeName = nodeInfo?.name || targetNode;
+
+    addToast(`🚫 Route Choked at ${nodeName}! Rerouting safe path...`, 'warning', '⚡');
+  }, [isAutoSim, stopAutoSim, routeResult, blockedNodes, routeSource, routeTarget, nodes, addToast]);
+
   // ─── Guided Demo Mode Presets ─────────────────────────────
   const setDemoPreset = (step: number) => {
     if (isAutoSim) stopAutoSim();
@@ -476,8 +529,8 @@ export default function App() {
         setMinutes(30);
         setBlockedNodes([]);
         setChokeMode(false);
-        setRouteSource('cp_outer_n');
-        setRouteTarget('aiims_delhi');
+        setRouteSource('moolchand_flyover_w');
+        setRouteTarget('cp_outer_s');
         setShowRoute(true);
         break;
       default: // Reset Simulation to baseline
@@ -486,8 +539,8 @@ export default function App() {
         setBlockedNodes([]);
         setShowRoute(false);
         setChokeMode(false);
-        setRouteSource('cp_outer_n');
-        setRouteTarget('barakhamba_junction');
+        setRouteSource('moolchand_flyover_w');
+        setRouteTarget('cp_outer_s');
         setRouteResult(null);
         setRoutePath([]);
         break;
@@ -523,26 +576,21 @@ export default function App() {
         }}
         blockedNodes={blockedNodes}
         onClearBlockedNodes={handleClearBlockedNodes}
-        onUnblockNode={handleNodeClick}
         showRoute={showRoute}
         onRouteToggle={() => {
           if (isAutoSim) stopAutoSim();
           setShowRoute(prev => !prev);
         }}
         routeSource={routeSource}
-        routeTarget={routeTarget}
         onRouteSourceChange={(src) => {
           if (isAutoSim) stopAutoSim();
           setRouteSource(src);
-        }}
-        onRouteTargetChange={(tgt) => {
-          if (isAutoSim) stopAutoSim();
-          setRouteTarget(tgt);
         }}
         routeResult={routeResult}
         nodes={nodes}
         nodeList={nodeList}
         loading={loading}
+        onOpenDrawer={() => setIsDrawerOpen(true)}
         isAutoSim={isAutoSim}
         autoSimStep={autoSimStep}
         onStartAutoSim={startAutoSim}
@@ -813,6 +861,7 @@ export default function App() {
             onStopAutoSim={stopAutoSim}
             onClearBlockedNodes={handleClearBlockedNodes}
             onToggleBlockNode={handleToggleBlockNode}
+            onChokeActiveRoute={handleChokeActiveRoute}
           />
 
           {/* Map Color Legend */}
@@ -831,12 +880,8 @@ export default function App() {
               <span>Medium (10–20 cm) · Caution</span>
             </div>
             <div className="legend-item">
-              <div className="legend-color" style={{ background: '#06b6d4' }} />
-              <span>Low (3–10 cm) · Minor Runoff</span>
-            </div>
-            <div className="legend-item">
               <div className="legend-color" style={{ background: '#10b981' }} />
-              <span>Safe (&lt; 3 cm) · Free Flow</span>
+              <span>Safe (&lt; 10 cm) · Passable Corridor</span>
             </div>
             <div style={{ margin: '6px 0 4px', borderTop: '1px solid var(--border-subtle)' }} />
             <div className="legend-item">
@@ -892,6 +937,15 @@ export default function App() {
           </div>
         </footer>
       </main>
+      {/* ─── Math Basis & Route Rationale Side Drawer ─── */}
+      <CalculationDrawer
+        rainMm={rainMm}
+        minutes={minutes}
+        routeResult={routeResult}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
+
       {/* ─── Toast Notification System ─── */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>

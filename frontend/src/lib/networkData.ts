@@ -9,36 +9,6 @@ export interface CatchmentNodeInfo {
   role?: "sag" | "hospital" | "railway" | "junction";
 }
 
-export interface DestinationItem {
-  id: string;
-  name: string;
-  icon: string;
-  area: string;
-  badge: string;
-}
-
-export const TOP_15_DESTINATIONS: DestinationItem[] = [
-  { id: "barakhamba_junction", name: "Barakhamba Road Hub", icon: "🏥", area: "Connaught Place", badge: "Trauma Level 1" },
-  { id: "cp_outer_n", name: "CP Outer Circle North", icon: "🏥", area: "Connaught Place", badge: "Emergency Hub" },
-  { id: "ito_junction", name: "ITO Junction Medical Hub", icon: "🏥", area: "ITO", badge: "Super Specialty" },
-  { id: "ndls_railway_station", name: "NDLS Station Emergency Gate", icon: "🚉", area: "Paharganj", badge: "Transit Hub" },
-  { id: "mandi_house", name: "Mandi House Hub", icon: "🏥", area: "Mandi House", badge: "Apex Facility" },
-  { id: "patel_chowk", name: "Patel Chowk Hub", icon: "🏥", area: "Sansad Marg", badge: "Emergency Response" },
-  { id: "ddu_marg_east", name: "DDU Marg Rouse Ave", icon: "🏥", area: "DDU Marg", badge: "General Hospital" },
-  { id: "tagore_road", name: "Tagore Road Junction", icon: "🏥", area: "Minto Catchment", badge: "Local Clinic" },
-  { id: "cp_inner_n", name: "CP Inner North Radial", icon: "🏥", area: "Central Park", badge: "First Aid Hub" },
-  { id: "minto_north", name: "Minto Road North Gate", icon: "🚑", area: "Minto Road", badge: "Dispatch Depot" },
-  { id: "cp_outer_s", name: "CP Outer Circle South", icon: "🏥", area: "Connaught Place", badge: "Emergency Response" },
-  { id: "cp_outer_e", name: "CP Outer Circle East", icon: "🏥", area: "KG Marg", badge: "Sub-Station" },
-  { id: "cp_inner_e", name: "CP Inner Circle East", icon: "🏥", area: "KG Marg Radial", badge: "First Response" },
-  { id: "cp_outer_se", name: "CP Outer Circle SE", icon: "🏥", area: "Tolstoy Marg", badge: "Medical Center" },
-  { id: "minto_slope_up", name: "Minto Slope Ascent Gate", icon: "🚑", area: "Minto Ingress", badge: "Rescue Station" },
-];
-
-export function preWarmAllDestinationRoutes(_source?: string, _rainMm?: number, _thresholdCm?: number, _minutes?: number, _blockedNodes?: string[]): void {
-  // Pre-warm helper
-}
-
 export const CATCHMENT_NODES: Record<string, CatchmentNodeInfo> = {
   "minto_north": {
     "lat": 28.6295,
@@ -1871,6 +1841,38 @@ export const CATCHMENT_NODES: Record<string, CatchmentNodeInfo> = {
     "catch_area": 3400,
     "name": "AIIMS Ring Road Subway Sag",
     "role": "sag"
+  },
+  "moolchand_flyover_w": {
+    "lat": 28.5652,
+    "lon": 77.2341,
+    "elevation": 216.5,
+    "catch_area": 3200,
+    "name": "Moolchand Flyover West",
+    "role": "junction"
+  },
+  "cp_outer_s_wp1": {
+    "lat": 28.58078,
+    "lon": 77.23032,
+    "elevation": 216.2,
+    "catch_area": 3200,
+    "name": "CP Outer Circle South (Waypt 1)",
+    "role": "junction"
+  },
+  "cp_outer_s_wp2": {
+    "lat": 28.59635,
+    "lon": 77.22655,
+    "elevation": 216.0,
+    "catch_area": 3200,
+    "name": "CP Outer Circle South (Waypt 2)",
+    "role": "junction"
+  },
+  "cp_outer_s_wp3": {
+    "lat": 28.61192,
+    "lon": 77.22277,
+    "elevation": 215.8,
+    "catch_area": 3200,
+    "name": "CP Outer Circle South (Waypt 3)",
+    "role": "junction"
   },
   "safdarjung_tomb": {
     "lat": 28.589,
@@ -58102,6 +58104,141 @@ export const INITIAL_EDGES: NetworkEdge[] = [
     "diameter_m": 0.9,
     "diameter": 0.9,
     "slope": 0.0042
+  },
+  {
+    "from": "south_extension",
+    "to": "moolchand_flyover_w",
+    "from_id": "south_extension",
+    "to_id": "moolchand_flyover_w",
+    "from_lat": 28.571,
+    "from_lon": 77.222,
+    "to_lat": 28.5652,
+    "to_lon": 77.2341,
+    "length_m": 1346.2,
+    "length": 1346.2,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "cp_outer_s_wp1",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "cp_outer_s_wp1",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.58078,
+    "to_lon": 77.23032,
+    "length_m": 1771.3,
+    "length": 1771.3,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp1",
+    "to": "cp_outer_s_wp2",
+    "from_id": "cp_outer_s_wp1",
+    "to_id": "cp_outer_s_wp2",
+    "from_lat": 28.58078,
+    "from_lon": 77.23032,
+    "to_lat": 28.59635,
+    "to_lon": 77.22655,
+    "length_m": 1770.0,
+    "length": 1770.0,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp2",
+    "to": "cp_outer_s_wp3",
+    "from_id": "cp_outer_s_wp2",
+    "to_id": "cp_outer_s_wp3",
+    "from_lat": 28.59635,
+    "from_lon": 77.22655,
+    "to_lat": 28.61192,
+    "to_lon": 77.22277,
+    "length_m": 1770.2,
+    "length": 1770.2,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp3",
+    "to": "cp_outer_s",
+    "from_id": "cp_outer_s_wp3",
+    "to_id": "cp_outer_s",
+    "from_lat": 28.61192,
+    "from_lon": 77.22277,
+    "to_lat": 28.6275,
+    "to_lon": 77.219,
+    "length_m": 1771.1,
+    "length": 1771.1,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "cp_outer_s",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "cp_outer_s",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.6275,
+    "to_lon": 77.219,
+    "length_m": 7082.6,
+    "length": 7082.6,
+    "diameter_m": 0.8,
+    "diameter": 0.8,
+    "slope": 0.002
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "lodhi_road_ina",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "lodhi_road_ina",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.583,
+    "to_lon": 77.213,
+    "length_m": 2857.1,
+    "length": 2857.1,
+    "diameter_m": 0.8,
+    "diameter": 0.8,
+    "slope": 0.002
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "barakhamba_junction",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "barakhamba_junction",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.631,
+    "to_lon": 77.221,
+    "length_m": 7427.6,
+    "length": 7427.6,
+    "diameter_m": 0.8,
+    "diameter": 0.8,
+    "slope": 0.002
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "patel_chowk",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "patel_chowk",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.623,
+    "to_lon": 77.214,
+    "length_m": 6720.0,
+    "length": 6720.0,
+    "diameter_m": 0.8,
+    "diameter": 0.8,
+    "slope": 0.002
   },
   {
     "from": "patel_chowk",
@@ -260364,6 +260501,246 @@ export const INITIAL_EDGES: NetworkEdge[] = [
     "slope": 0.0362
   },
   {
+    "from": "moolchand_flyover_w",
+    "to": "mesh_14_55",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "mesh_14_55",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.5635,
+    "to_lon": 77.2328,
+    "length_m": 227.7,
+    "length": 227.7,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0048
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "mesh_14_56",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "mesh_14_56",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.5635,
+    "to_lon": 77.2351,
+    "length_m": 212.8,
+    "length": 212.8,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0047
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "mesh_15_55",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "mesh_15_55",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.5655,
+    "to_lon": 77.2328,
+    "length_m": 131.3,
+    "length": 131.3,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0168
+  },
+  {
+    "from": "moolchand_flyover_w",
+    "to": "mesh_15_56",
+    "from_id": "moolchand_flyover_w",
+    "to_id": "mesh_15_56",
+    "from_lat": 28.5652,
+    "from_lon": 77.2341,
+    "to_lat": 28.5655,
+    "to_lon": 77.2351,
+    "length_m": 103.2,
+    "length": 103.2,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0145
+  },
+  {
+    "from": "cp_outer_s_wp1",
+    "to": "mesh_22_53",
+    "from_id": "cp_outer_s_wp1",
+    "to_id": "mesh_22_53",
+    "from_lat": 28.58078,
+    "from_lon": 77.23032,
+    "to_lat": 28.5795,
+    "to_lon": 77.2282,
+    "length_m": 251.2,
+    "length": 251.2,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp1",
+    "to": "mesh_22_54",
+    "from_id": "cp_outer_s_wp1",
+    "to_id": "mesh_22_54",
+    "from_lat": 28.58078,
+    "from_lon": 77.23032,
+    "to_lat": 28.5795,
+    "to_lon": 77.2305,
+    "length_m": 143.4,
+    "length": 143.4,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0077
+  },
+  {
+    "from": "cp_outer_s_wp1",
+    "to": "mesh_22_55",
+    "from_id": "cp_outer_s_wp1",
+    "to_id": "mesh_22_55",
+    "from_lat": 28.58078,
+    "from_lon": 77.23032,
+    "to_lat": 28.5795,
+    "to_lon": 77.2328,
+    "length_m": 280.9,
+    "length": 280.9,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0075
+  },
+  {
+    "from": "cp_outer_s_wp1",
+    "to": "mesh_23_53",
+    "from_id": "cp_outer_s_wp1",
+    "to_id": "mesh_23_53",
+    "from_lat": 28.58078,
+    "from_lon": 77.23032,
+    "to_lat": 28.5815,
+    "to_lon": 77.2282,
+    "length_m": 221.9,
+    "length": 221.9,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp2",
+    "to": "mesh_29_52",
+    "from_id": "cp_outer_s_wp2",
+    "to_id": "mesh_29_52",
+    "from_lat": 28.59635,
+    "from_lon": 77.22655,
+    "to_lat": 28.5935,
+    "to_lon": 77.2259,
+    "length_m": 323.2,
+    "length": 323.2,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp2",
+    "to": "mesh_30_51",
+    "from_id": "cp_outer_s_wp2",
+    "to_id": "mesh_30_51",
+    "from_lat": 28.59635,
+    "from_lon": 77.22655,
+    "to_lat": 28.5955,
+    "to_lon": 77.2236,
+    "length_m": 303.1,
+    "length": 303.1,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp2",
+    "to": "mesh_30_52",
+    "from_id": "cp_outer_s_wp2",
+    "to_id": "mesh_30_52",
+    "from_lat": 28.59635,
+    "from_lon": 77.22655,
+    "to_lat": 28.5955,
+    "to_lon": 77.2259,
+    "length_m": 113.8,
+    "length": 113.8,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0062
+  },
+  {
+    "from": "cp_outer_s_wp2",
+    "to": "mesh_30_53",
+    "from_id": "cp_outer_s_wp2",
+    "to_id": "mesh_30_53",
+    "from_lat": 28.59635,
+    "from_lon": 77.22655,
+    "to_lat": 28.5955,
+    "to_lon": 77.2282,
+    "length_m": 186.8,
+    "length": 186.8,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0032
+  },
+  {
+    "from": "cp_outer_s_wp3",
+    "to": "mesh_37_50",
+    "from_id": "cp_outer_s_wp3",
+    "to_id": "mesh_37_50",
+    "from_lat": 28.61192,
+    "from_lon": 77.22277,
+    "to_lat": 28.6095,
+    "to_lon": 77.2213,
+    "length_m": 305.0,
+    "length": 305.0,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0033
+  },
+  {
+    "from": "cp_outer_s_wp3",
+    "to": "mesh_37_51",
+    "from_id": "cp_outer_s_wp3",
+    "to_id": "mesh_37_51",
+    "from_lat": 28.61192,
+    "from_lon": 77.22277,
+    "to_lat": 28.6095,
+    "to_lon": 77.2236,
+    "length_m": 281.0,
+    "length": 281.0,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.002
+  },
+  {
+    "from": "cp_outer_s_wp3",
+    "to": "mesh_38_50",
+    "from_id": "cp_outer_s_wp3",
+    "to_id": "mesh_38_50",
+    "from_lat": 28.61192,
+    "from_lon": 77.22277,
+    "to_lat": 28.6115,
+    "to_lon": 77.2213,
+    "length_m": 150.9,
+    "length": 150.9,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0066
+  },
+  {
+    "from": "cp_outer_s_wp3",
+    "to": "mesh_38_51",
+    "from_id": "cp_outer_s_wp3",
+    "to_id": "mesh_38_51",
+    "from_lat": 28.61192,
+    "from_lon": 77.22277,
+    "to_lat": 28.6115,
+    "to_lon": 77.2236,
+    "length_m": 93.5,
+    "length": 93.5,
+    "diameter_m": 0.9,
+    "diameter": 0.9,
+    "slope": 0.0032
+  },
+  {
     "from": "safdarjung_tomb",
     "to": "mesh_26_44",
     "from_id": "safdarjung_tomb",
@@ -268736,6 +269113,45 @@ export function findRouteLocal(
     origin_depth_cm: Number(srcDepth.toFixed(1)),
     destination_depth_cm: Number(tgtDepth.toFixed(1)),
     threshold_cm: thresholdCm,
-    message: `Safe route computed (${Math.round(safeDist)}m) along street centerline avoiding inundated corridors.`,
+    message: `Safe route computed (\${Math.round(safeDist)}m) along street centerline avoiding inundated corridors.`,
   };
+}
+
+export interface DestinationItem {
+  id: string;
+  name: string;
+  icon: string;
+  area: string;
+  badge: string;
+}
+
+export const STARTING_LOCATIONS_12: DestinationItem[] = [
+  { id: "moolchand_flyover_w", name: "1. Moolchand Flyover West", icon: "📍", area: "Ring Road South", badge: "Primary Dispatch" },
+  { id: "cp_outer_s", name: "2. CP Outer Circle South", icon: "📍", area: "Connaught Place", badge: "Emergency Response" },
+  { id: "cp_outer_n", name: "3. Connaught Place North", icon: "📍", area: "CP Outer North", badge: "Radial Hub 1" },
+  { id: "barakhamba_junction", name: "4. Barakhamba Road Hub", icon: "📍", area: "Connaught Place", badge: "Trauma Hub" },
+  { id: "ito_junction", name: "5. ITO Medical Hub", icon: "📍", area: "ITO Junction", badge: "Super Specialty" },
+  { id: "ndls_railway_station", name: "6. NDLS Station Entry", icon: "🚉", area: "Paharganj Gate", badge: "Transit Hub" },
+  { id: "mandi_house", name: "7. Mandi House Circle", icon: "📍", area: "Mandi House", badge: "Apex Facility" },
+  { id: "patel_chowk", name: "8. Patel Chowk Hub", icon: "📍", area: "Sansad Marg", badge: "Emergency Hub" },
+  { id: "ddu_marg_east", name: "9. DDU Marg Rouse Ave", icon: "📍", area: "DDU Marg", badge: "General Hospital" },
+  { id: "tagore_road", name: "10. Tagore Road Junction", icon: "📍", area: "Minto Catchment", badge: "Local Clinic" },
+  { id: "cp_inner_n", name: "11. CP Radial Inner North", icon: "📍", area: "Central Park", badge: "First Aid Hub" },
+  { id: "minto_north", name: "12. Minto Road North Gate", icon: "🚑", area: "Minto Ingress", badge: "Dispatch Depot" },
+];
+
+export const TOP_15_DESTINATIONS = STARTING_LOCATIONS_12;
+
+export function preWarmAllDestinationRoutes(
+  source: string,
+  rainMm: number,
+  thresholdCm: number = 15,
+  minutes: number = 30,
+  blockedNodes: string[] = []
+): void {
+  for (const dest of TOP_15_DESTINATIONS) {
+    if (dest.id !== source) {
+      findRouteLocal(source, dest.id, rainMm, thresholdCm, minutes, blockedNodes);
+    }
+  }
 }

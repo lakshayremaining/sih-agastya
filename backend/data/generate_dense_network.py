@@ -659,8 +659,14 @@ def build_dense_network():
         ("aiims_delhi", "AIIMS New Delhi (Apex Trauma Centre)", 28.5672, 77.2100, 217.5, 5200, "hospital"),
         ("aiims_flyover_sag", "AIIMS Ring Road Subway Sag", 28.5665, 77.2110, 211.0, 3400, "sag"),
         ("south_extension", "South Extension Ring Road", 28.5710, 77.2220, 216.0, 3600, "junction"),
+        ("moolchand_flyover_w", "Moolchand Flyover West", 28.5652, 77.2341, 216.5, 3200, "junction"),
+        ("cp_outer_s", "CP Outer Circle South", 28.6275, 77.2190, 215.5, 3200, "junction"),
     ])
     add_edge("aiims_delhi", "safdarjung_hospital")
+    add_edge("moolchand_flyover_w", "cp_outer_s")
+    add_edge("moolchand_flyover_w", "lodhi_road_ina")
+    add_edge("moolchand_flyover_w", "barakhamba_junction")
+    add_edge("moolchand_flyover_w", "patel_chowk")
 
     # Aurobindo Marg Radial: Central Secretariat -> AIIMS -> IIT Delhi -> Saket
     add_corridor([

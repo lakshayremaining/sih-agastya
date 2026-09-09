@@ -87,6 +87,7 @@ export interface AlternateRouteInfo {
 
 export interface RouteResponse {
   path: string[];
+  path_nodes?: string[];
   path_coords: PathCoord[];
   normal_path?: string[];
   normal_path_coords?: PathCoord[];

@@ -37,6 +37,7 @@ interface FloodMapProps {
   onStopAutoSim?: () => void;
   onClearBlockedNodes?: () => void;
   onToggleBlockNode?: (nodeId: string) => void;
+  onChokeActiveRoute?: () => void;
 }
 
 // Flood depth → colour mapping (matches standard hydrological risk legend)
@@ -44,8 +45,7 @@ function getDepthColor(depth: number): string {
   if (depth >= 30) return '#ef4444';   // CRITICAL — red
   if (depth >= 20) return '#f97316';   // HIGH — orange
   if (depth >= 10) return '#f59e0b';   // MEDIUM — amber
-  if (depth >= 3) return '#06b6d4';    // LOW — cyan
-  return '#10b981';                     // SAFE — green
+  return '#10b981';                     // SAFE — green (No blue nodes)
 }
 
 function getDepthRadius(depth: number, isWaypoint: boolean = false): number {
@@ -120,6 +120,7 @@ export default function FloodMap({
   onStopAutoSim,
   onClearBlockedNodes,
   onToggleBlockNode,
+  onChokeActiveRoute,
 }: FloodMapProps) {
   const blockedSet = useMemo(() => new Set(blockedNodes), [blockedNodes]);
   const [showPotholes, setShowPotholes] = useState<boolean>(true);
@@ -128,7 +129,6 @@ export default function FloodMap({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterRole, setFilterRole] = useState<string>('all');
   const [, setCurrentZoom] = useState<number>(zoom);
-  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
   const [showNodesWhenRouting, setShowNodesWhenRouting] = useState<boolean>(false);
   const [isHudCollapsed, setIsHudCollapsed] = useState<boolean>(false);
   const [dismissedBottomModal, setDismissedBottomModal] = useState<boolean>(false);
@@ -190,7 +190,7 @@ export default function FloodMap({
 
   // Memoize dropdown junctions to avoid rendering thousands of option DOM elements
   const dropdownLandmarkNodes = useMemo(() => {
-    return nodes.filter(n => !n.node_id.startsWith('mesh_') && !n.node_id.includes('_wp') && !TOP_15_DESTINATIONS.some(d => d.id === n.node_id));
+    return nodes.filter(n => !n.node_id.startsWith('mesh_') && !n.node_id.includes('_wp') && !TOP_15_DESTINATIONS.some((d: any) => d.id === n.node_id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes.length]);
 
@@ -202,7 +202,7 @@ export default function FloodMap({
     return m;
   }, [nodes]);
 
-  // Show all primary arterial roads, landmark junctions, sags, hospitals, and blocked nodes
+  // Hide safe/low-risk nodes from the screen — show only flooded risk nodes (depth >= 10cm), blocked nodes, and route endpoints
   const filteredNodes = useMemo(() => {
     return nodes.filter(n => {
       if (n.node_id === routeSource || n.node_id === routeTarget) return true;
@@ -210,11 +210,8 @@ export default function FloodMap({
       if (filterRole === 'sag') return n.depth_cm >= 10 || n.role === 'sag' || n.name.toLowerCase().includes('underpass');
       if (filterRole === 'hospital') return n.role === 'hospital';
       
-      // Default view: Show all primary main roads and key landmark junctions, plus any moderately flooded area
-      const isMainRoad = !n.node_id.startsWith('mesh_') && !n.node_id.includes('_wp');
-      if (isMainRoad) return true;
-      if (n.depth_cm >= 5) return true;
-      return false;
+      // Only render nodes on screen that have actual water risk (depth >= 10 cm)
+      return n.depth_cm >= 10;
     });
   }, [nodes, routeSource, routeTarget, blockedSet, filterRole]);
 
@@ -530,7 +527,7 @@ export default function FloodMap({
               }}
             >
               <optgroup label="⭐ Top 15 Emergency Hospital & Trauma Hubs (Fast O(1) Cache)">
-                {TOP_15_DESTINATIONS.map(d => {
+                {TOP_15_DESTINATIONS.map((d: any) => {
                   const dDepth = nodeDepthMap.get(d.id) ?? 0;
                   const isSafe = dDepth <= 15;
                   return (
@@ -1184,21 +1181,6 @@ export default function FloodMap({
         <MapUpdater center={center} zoom={zoom} routePath={routePath} />
         <ZoomTracker onZoomChange={setCurrentZoom} />
 
-        {/* ─── Heatmap Overlay: blurred flood-depth circles (canvas layer) ─── */}
-        {showHeatmap && nodes.filter(n => n.depth_cm >= 3).map(n => (
-          <CircleMarker
-            key={`hm-${n.node_id}`}
-            center={[n.lat, n.lon]}
-            radius={Math.min(40, 10 + (n.depth_cm / 30) * 30)}
-            pathOptions={{
-              fillColor: getDepthColor(n.depth_cm),
-              fillOpacity: Math.min(0.45, 0.12 + (n.depth_cm / 30) * 0.33),
-              color: 'transparent',
-              weight: 0,
-            }}
-          />
-        ))}
-
         {/* Pipe network lines (Dimmed during safe route active mode) — Single SVG path for 60 FPS performance */}
         {!isSafeRouteActive && multiPolylinePositions.length > 0 && (
           <Polyline
@@ -1702,28 +1684,6 @@ export default function FloodMap({
         ))}
       </div>
 
-      {/* ─── Heatmap Toggle Button ─── */}
-      <button
-        type="button"
-        className={`heatmap-toggle${showHeatmap ? ' active' : ''}`}
-        style={{ top: 54, right: 14 }}
-        onClick={() => setShowHeatmap(prev => !prev)}
-        title="Toggle flood depth heatmap overlay"
-      >
-        <span style={{ fontSize: 12 }}>🌡️</span>
-        <span>Heatmap {showHeatmap ? 'ON' : 'OFF'}</span>
-        <span style={{
-          fontSize: 8,
-          padding: '1px 5px',
-          borderRadius: 4,
-          background: showHeatmap ? 'rgba(249,115,22,0.3)' : 'rgba(255,255,255,0.06)',
-          color: showHeatmap ? '#fb923c' : '#475569',
-          fontWeight: 800,
-        }}>
-          {showHeatmap ? '●' : '○'}
-        </span>
-      </button>
-
       {/* ─── Mini Overview Map (bottom-right inset) ─── */}
       <div
         className="mini-overview-map"
@@ -1778,6 +1738,115 @@ export default function FloodMap({
           Overview
         </div>
       </div>
+
+      {/* ─── Right-Center Floating Choke Control Panel ─── */}
+      {showRoute && (
+        <div
+          className="choke-floating-hud"
+          style={{
+            position: 'fixed',
+            right: '16px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            zIndex: 1000,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            gap: '8px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+          }}
+        >
+          {/* Status Info Badge */}
+          <div
+            style={{
+              background: 'rgba(15, 23, 42, 0.92)',
+              backdropFilter: 'blur(8px)',
+              border: routeResult?.reachable ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(239, 68, 68, 0.8)',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              color: '#e2e8f0',
+              fontSize: '11px',
+              fontWeight: 700,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              maxWidth: '220px',
+            }}
+          >
+            <span style={{ fontSize: '14px' }}>
+              {routeResult?.reachable ? '🚑' : '🚨'}
+            </span>
+            <span>
+              {routeResult?.reachable
+                ? `Route: ${routeResult.distance_m}m ${blockedNodes.length > 0 ? `(${blockedNodes.length} Choked)` : ''}`
+                : '⛔ No Safe Alternative Route'}
+            </span>
+          </div>
+
+          {/* Primary Choke Button */}
+          <button
+            type="button"
+            onClick={() => {
+              if (onChokeActiveRoute) onChokeActiveRoute();
+            }}
+            title="Choke key road segment on current route and calculate next safe alternative route"
+            style={{
+              background: 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)',
+              color: '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              borderRadius: '10px',
+              padding: '10px 16px',
+              fontSize: '12.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 0 20px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0,0,0,0.4)',
+              transition: 'all 0.2s ease',
+              letterSpacing: '0.02em',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1.04)';
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+            }}
+          >
+            <span style={{ fontSize: '15px', filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.8))' }}>⚡</span>
+            <span>Choke Active Route</span>
+          </button>
+
+          {/* Clear Chokes Reset Button */}
+          {blockedNodes.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                if (onClearBlockedNodes) onClearBlockedNodes();
+              }}
+              title="Clear all choked nodes and restore baseline route"
+              style={{
+                background: 'rgba(30, 41, 59, 0.9)',
+                color: '#34d399',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                borderRadius: '8px',
+                padding: '6px 12px',
+                fontSize: '11px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backdropFilter: 'blur(4px)',
+                boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+              }}
+            >
+              <span>↺ Clear Chokes ({blockedNodes.length})</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ─── Choke Pulse Rings (SVG overlay via CircleMarker) — rendered inside MapContainer above ─── */}
       {/* Note: choke rings are rendered as part of the Leaflet SVG layer within MapContainer */}
