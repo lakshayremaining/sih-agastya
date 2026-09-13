@@ -378,7 +378,9 @@ def build_dense_network():
         ("lodhi_road_ina", "Lodhi Road / INA Market", 28.5830, 77.2130, 218.0, 3500, "junction"),
     ])
     add_edge("motilal_nehru_e", "shahjahan_road_mid")
-    add_edge("khan_market_metro", "sunder_nagar_zoo")
+    add_node("sunder_nagar_jcn", "Sunder Nagar / Mathura Road Junction", 28.5985, 77.2345, 215.0, 2800, "junction")
+    add_edge("khan_market_metro", "sunder_nagar_jcn")
+    add_edge("sunder_nagar_jcn", "sunder_nagar_zoo")
 
     # ═════════════════════════════════════════════════════════════════
     # 6. S-CURVES, UNDERPASSES & BEND ARCS IN 10 KM RADIUS
@@ -561,17 +563,26 @@ def build_dense_network():
         ("azadpur_sag", "Azadpur Underpass Sag", 28.7090, 77.1750, 212.0, 3800, "sag"),
         ("model_town_3", "Model Town III Junction", 28.7020, 77.1860, 215.5, 3100, "junction"),
     ])
-    add_edge("model_town_3", "du_north_campus")
+    add_corridor([
+        ("model_town_3", "Model Town III Junction", 28.7020, 77.1860, 215.5, 3100, "junction"),
+        ("model_town_2", "Model Town II / Azadpur Link", 28.6980, 77.1990, 215.8, 3000, "junction"),
+        ("du_north_campus", "Delhi University North Campus", 28.6920, 77.2120, 216.5, 3900, "junction"),
+    ])
     add_edge("model_town_3", "azadpur_mandi")
 
     add_corridor([
         ("azadpur_mandi", "Azadpur Chowk / GT Karnal Road", 28.7070, 77.1770, 215.0, 4200, "junction"),
         ("shalimar_bagh_entry", "Shalimar Bagh Ring Road", 28.7085, 77.1620, 215.5, 3300, "junction"),
         ("max_hospital_shalimar_bagh", "Max Super Speciality Shalimar Bagh", 28.7120, 77.1550, 216.0, 4000, "hospital"),
+        ("shalimar_pitampura_link", "Shalimar Bagh / Pitampura Ring Road Link", 28.7035, 77.1530, 216.2, 3200, "junction"),
         ("netaji_subhash_place", "Netaji Subhash Place (Pitampura)", 28.6950, 77.1520, 216.5, 3800, "junction"),
         ("wazirpur_industrial", "Wazirpur Industrial Area Ring Road", 28.6880, 77.1600, 216.0, 3400, "junction"),
     ])
-    add_edge("wazirpur_industrial", "azadpur_mandi")
+    add_corridor([
+        ("wazirpur_industrial", "Wazirpur Industrial Area Ring Road", 28.6880, 77.1600, 216.0, 3400, "junction"),
+        ("azadpur_wazirpur_link", "Azadpur Wazirpur Ring Road Link", 28.6980, 77.1690, 215.5, 3200, "junction"),
+        ("azadpur_mandi", "Azadpur Chowk / GT Karnal Road", 28.7070, 77.1770, 215.0, 4200, "junction"),
+    ])
 
     # ═════════════════════════════════════════════════════════════════
     # 9. WEST DELHI CORRIDOR (Karol Bagh, Patel Nagar, Rajouri, Janakpuri, Dwarka)
@@ -610,13 +621,30 @@ def build_dense_network():
     add_corridor([
         ("janakpuri_dc", "Janakpuri District Centre", 28.6290, 77.0810, 220.0, 3700, "junction"),
         ("vikaspuri_flyover", "Vikaspuri Outer Ring Road", 28.6420, 77.0780, 220.5, 3300, "junction"),
+        ("paschim_vihar_ring", "Paschim Vihar Ring Road Junction", 28.6540, 77.0860, 219.8, 3400, "junction"),
+        ("jwala_hera_ring", "Jwala Hera Ring Road", 28.6620, 77.0880, 219.5, 3300, "junction"),
+        ("nangloi_ring_rd", "Nangloi Ring Road", 28.6680, 77.0930, 219.0, 3600, "junction"),
         ("peera_garhi_chowk", "Peera Garhi Chowk (Rohtak Rd)", 28.6780, 77.0950, 218.5, 4100, "junction"),
         ("mangolpuri_flyover", "Mangolpuri Outer Ring Road", 28.6920, 77.1120, 217.5, 3500, "junction"),
         ("madhuban_chowk", "Madhuban Chowk (Pitampura)", 28.7010, 77.1320, 217.0, 3800, "junction"),
         ("netaji_subhash_place", "Netaji Subhash Place (Pitampura)", 28.6950, 77.1520, 216.5, 3800, "junction"),
     ])
-    add_edge("zakhira_underpass", "peera_garhi_chowk")
-    add_edge("wazirpur_industrial", "moti_nagar_chowk")
+    # Zakhira -> Peera Garhi via Rohtak Road (6km split into ~300m segments)
+    add_corridor([
+        ("zakhira_underpass", "Zakhira Flyover Underpass (Ring Road)", 28.6658, 77.1540, 210.5, 3800, "sag"),
+        ("nangloi_chowk_jcn", "Nangloi Chowk Ring Road Junction", 28.6680, 77.1280, 217.0, 3500, "junction"),
+        ("nangloi_peeragarhi_link", "Nangloi-Peeragarhi Rohtak Road Link", 28.6720, 77.1130, 218.0, 3300, "junction"),
+        ("peeragarhi_rohtak_rd", "Peeragarhi Rohtak Road", 28.6760, 77.1020, 218.3, 3400, "junction"),
+        ("peera_garhi_chowk", "Peera Garhi Chowk (Rohtak Rd)", 28.6780, 77.0950, 218.5, 4100, "junction"),
+    ])
+    # Wazirpur -> Moti Nagar Chowk via Ring Road (4.2km split)
+    add_corridor([
+        ("wazirpur_industrial", "Wazirpur Industrial Area Ring Road", 28.6880, 77.1600, 216.0, 3400, "junction"),
+        ("shalimar_bagh_ring", "Shalimar Bagh Ring Road South", 28.6800, 77.1450, 216.5, 3300, "junction"),
+        ("saraswati_vihar_ring", "Saraswati Vihar Ring Road", 28.6700, 77.1380, 217.0, 3200, "junction"),
+        ("kirti_nagar_ring", "Kirti Nagar Ring Road Junction", 28.6550, 77.1310, 217.5, 3500, "junction"),
+        ("moti_nagar_chowk", "Moti Nagar Ring Road Crossing", 28.6540, 77.1420, 217.0, 3500, "junction"),
+    ])
 
     # ═════════════════════════════════════════════════════════════════
     # 10. SOUTH-WEST CORRIDOR & DHAULA KUAN MULTI-TIER LOOPS
@@ -649,10 +677,13 @@ def build_dense_network():
     add_corridor([
         ("dhaula_kuan_w", "Dhaula Kuan West Cantt Flyover Ramp", 28.5915, 77.1575, 224.5, 3400, "junction"),
         ("delhi_cantt", "Delhi Cantt Flyover (Jail Road)", 28.5980, 77.1300, 223.0, 3500, "junction"),
+        ("najafgarh_rd_cantt", "Najafgarh Road Cantt Junction", 28.6060, 77.1280, 222.5, 3300, "junction"),
+        ("madipur_jcn", "Madipur Ring Road Junction", 28.6170, 77.1265, 221.5, 3400, "junction"),
+        ("mayapuri_jcn", "Mayapuri Industrial Ring Road", 28.6250, 77.1262, 221.0, 3300, "junction"),
         ("mayapuri_crossing", "Mayapuri Ring Road Crossing", 28.6310, 77.1260, 220.0, 3400, "junction"),
+        ("rajouri_garden_approach", "Rajouri Garden Approach (Ring Road)", 28.6400, 77.1240, 219.0, 3200, "junction"),
         ("rajouri_garden", "Rajouri Garden Ring Road Chowk", 28.6490, 77.1220, 218.0, 3800, "junction"),
     ])
-    add_edge("delhi_cantt", "mayapuri_crossing")
 
     add_corridor([
         ("dhaula_kuan_s", "Dhaula Kuan South NH-48 Ramp", 28.5908, 77.1595, 224.0, 3400, "junction"),
@@ -662,11 +693,14 @@ def build_dense_network():
         ("aerocity_hospitality", "Aerocity Worldmark Hub", 28.5510, 77.1210, 229.0, 3600, "junction"),
         ("mahipalpur_flyover", "Mahipalpur NH-48 Junction", 28.5440, 77.1260, 230.0, 3800, "junction"),
         ("igi_airport_t3", "IGI Airport Terminal 3 (International)", 28.5560, 77.0850, 231.0, 5000, "railway"),
+        ("airport_express_sec21", "Airport Express Dwarka Sec 21 Station", 28.5560, 77.0720, 229.0, 3600, "junction"),
         ("dwarka_underpass", "Dwarka Sector 21 Airport Link", 28.5520, 77.0580, 226.0, 3500, "junction"),
+        ("dwarka_sec_10", "Dwarka Sector 10 Road", 28.5650, 77.0580, 225.0, 3200, "junction"),
+        ("dwarka_sec_7", "Dwarka Sector 7 Crossing", 28.5760, 77.0580, 224.0, 3100, "junction"),
+        ("dwarka_sec_8", "Dwarka Sector 8", 28.5820, 77.0580, 224.0, 3100, "junction"),
         ("manipal_dwarka", "Manipal Hospital Dwarka Sector 6", 28.5880, 77.0580, 223.5, 3600, "hospital"),
     ])
     add_edge("igi_airport_t1", "aerocity_hospitality")
-    add_edge("igi_airport_t3", "dwarka_underpass")
 
     # ═════════════════════════════════════════════════════════════════
     # 11. SOUTH DELHI INNER RING ROAD & AIIMS MEDICAL CORRIDOR
@@ -682,13 +716,49 @@ def build_dense_network():
         ("aiims_flyover_sag", "AIIMS Ring Road Subway Sag", 28.5665, 77.2110, 211.0, 3400, "sag"),
         ("south_extension", "South Extension Ring Road", 28.5710, 77.2220, 216.0, 3600, "junction"),
         ("moolchand_flyover_w", "Moolchand Flyover West", 28.5652, 77.2341, 216.5, 3200, "junction"),
-        ("cp_outer_s", "CP Outer Circle South", 28.6275, 77.2190, 215.5, 3200, "junction"),
     ])
     add_edge("aiims_delhi", "safdarjung_hospital")
-    add_edge("moolchand_flyover_w", "cp_outer_s")
-    add_edge("moolchand_flyover_w", "lodhi_road_ina")
-    add_edge("moolchand_flyover_w", "barakhamba_junction")
-    add_edge("moolchand_flyover_w", "patel_chowk")
+    # Moolchand -> Ring Road North (via Lajpat Nagar, INA, Khan Market, India Gate corridor)
+    add_corridor([
+        ("moolchand_flyover_w", "Moolchand Flyover West", 28.5652, 77.2341, 216.5, 3200, "junction"),
+        ("lajpat_nagar_ring_rd", "Lajpat Nagar Ring Road Junction", 28.5682, 77.2380, 216.0, 3300, "junction"),
+        ("defence_col_ring", "Defence Colony Ring Road Crossing", 28.5740, 77.2410, 215.8, 3200, "junction"),
+        ("ina_colony_ring", "INA Colony Ring Road Junction", 28.5800, 77.2320, 215.5, 3200, "junction"),
+        ("lodhi_colony_ring", "Lodhi Colony Ring Road", 28.5870, 77.2270, 215.0, 3100, "junction"),
+        ("khan_market_jcn", "Khan Market Lodhi Road Junction", 28.5990, 77.2250, 215.5, 3400, "junction"),
+        ("india_gate_south_ring", "India Gate South Ring Road", 28.6120, 77.2320, 214.8, 3600, "junction"),
+        ("pragati_maidan_ring_n", "Pragati Maidan Ring Road North", 28.6235, 77.2420, 214.2, 3500, "junction"),
+        ("tilak_bridge_ring", "Tilak Bridge Ring Road Junction", 28.6270, 77.2360, 214.5, 3200, "junction"),
+        ("barakhamba_junction", "Barakhamba Road / KG Marg Junction", 28.6315, 77.2285, 215.0, 3800, "junction"),
+    ])
+    # moolchand_flyover_w -> lodhi_road_ina via Aurobindo Marg (2.857km split into segments)
+    add_corridor([
+        ("moolchand_flyover_w", "Moolchand Flyover West", 28.5652, 77.2341, 216.5, 3200, "junction"),
+        ("lajpat_nagar_auro", "Lajpat Nagar Aurobindo Junction", 28.5700, 77.2280, 216.2, 3200, "junction"),
+        ("lodhi_road_ina", "Lodhi Road / INA Market", 28.5830, 77.2130, 218.0, 3500, "junction"),
+    ])
+    # Moolchand -> CP Outer South via ring road intermediate nodes
+    add_corridor([
+        ("moolchand_flyover_w", "Moolchand Flyover West", 28.5652, 77.2341, 216.5, 3200, "junction"),
+        ("ina_colony_ring", "INA Colony Ring Road Junction", 28.5800, 77.2320, 215.5, 3200, "junction"),
+        ("lodhi_colony_ring", "Lodhi Colony Ring Road", 28.5870, 77.2270, 215.0, 3100, "junction"),
+    ])
+    add_corridor([
+        ("lodhi_colony_ring", "Lodhi Colony Ring Road", 28.5870, 77.2270, 215.0, 3100, "junction"),
+        ("ina_market_ring", "INA Market Ring Road", 28.5780, 77.2130, 216.0, 3100, "junction"),
+        ("aiims_ring_road", "AIIMS Ring Road", 28.5690, 77.2080, 217.0, 3100, "junction"),
+        ("safdarjung_enclave_entry", "Safdarjung Enclave Ring Road", 28.5690, 77.1990, 218.0, 3200, "junction"),
+    ])
+    add_corridor([
+        ("india_gate_south_ring", "India Gate South Ring Road", 28.6120, 77.2320, 214.8, 3600, "junction"),
+        ("sansad_marg_mid", "Sansad Marg Mid (Jantar Mantar)", 28.6200, 77.2160, 216.0, 3200, "junction"),
+        ("cp_outer_s", "CP Outer Circle South", 28.6275, 77.2190, 215.5, 3200, "junction"),
+    ])
+    # Moolchand -> Patel Chowk via Aurobindo / Sansad Marg
+    add_corridor([
+        ("sansad_marg_mid", "Sansad Marg Mid (Jantar Mantar)", 28.6200, 77.2160, 216.0, 3200, "junction"),
+        ("patel_chowk", "Patel Chowk Metro / Sansad Marg", 28.6230, 77.2140, 217.0, 3000, "junction"),
+    ])
 
     # Aurobindo Marg Radial: Central Secretariat -> AIIMS -> IIT Delhi -> Saket
     add_corridor([
@@ -709,9 +779,19 @@ def build_dense_network():
         ("saket_district_centre", "Select Citywalk / Saket DC", 28.5280, 77.2190, 223.5, 3900, "junction"),
     ])
     add_edge("safdarjung_tomb", "lodhi_road_ina")
-    add_edge("lodhi_road_ina", "aiims_delhi")
+    # lodhi_road_ina -> aiims_delhi via Aurobindo Marg (1.78km — split via safdarjung_tomb)
+    add_corridor([
+        ("lodhi_road_ina", "Lodhi Road / INA Market", 28.5830, 77.2130, 218.0, 3500, "junction"),
+        ("aurobindo_ansari_nagar", "Aurobindo Marg / Ansari Nagar", 28.5750, 77.2115, 217.8, 3200, "junction"),
+        ("aiims_delhi", "AIIMS New Delhi (Apex Trauma Centre)", 28.5672, 77.2100, 217.5, 5200, "hospital"),
+    ])
     add_edge("hauz_khas", "iit_delhi")
-    add_edge("hauz_khas", "max_hospital_saket")
+    # hauz_khas -> max_hospital_saket via Sri Aurobindo Marg (1.94km — split via green park)
+    add_corridor([
+        ("hauz_khas", "Hauz Khas Metro Interchange", 28.5430, 77.2060, 221.0, 3800, "junction"),
+        ("green_park_sector1", "Green Park Sector 1 Market", 28.5350, 77.2100, 222.0, 3000, "junction"),
+        ("max_hospital_saket", "Max Super Speciality Hospital Saket", 28.5270, 77.2140, 224.0, 4500, "hospital"),
+    ])
     add_edge("max_hospital_saket", "saket_city_hospital")
     add_edge("saket_city_hospital", "saket_district_centre")
 
@@ -728,8 +808,18 @@ def build_dense_network():
         ("modi_mill_flyover", "Modi Mill Flyover Okhla", 28.5580, 77.2680, 215.0, 3600, "junction"),
         ("fortis_escorts_okhla", "Fortis Escorts Heart Institute Okhla", 28.5600, 77.2740, 214.0, 4200, "hospital"),
     ])
-    add_edge("moolchand_underpass", "chirag_delhi_flyover")
-    add_edge("lajpat_nagar", "nehru_place")
+    # moolchand_underpass -> chirag_delhi_flyover intermediate via Lala Lajpat/Defence Colony
+    add_corridor([
+        ("moolchand_underpass", "Moolchand Underpass Sag", 28.5652, 77.2325, 210.5, 3400, "sag"),
+        ("hudco_place", "HUDCO Place / Lala Lajpat Rai Rd", 28.5575, 77.2290, 218.5, 3100, "junction"),
+        ("chirag_delhi_flyover", "Chirag Delhi Flyover", 28.5455, 77.2340, 219.0, 3600, "junction"),
+    ])
+    # lajpat_nagar -> nehru_place via Kalkaji Extension service road
+    add_corridor([
+        ("lajpat_nagar", "Lajpat Nagar Metro", 28.5680, 77.2430, 216.8, 3800, "junction"),
+        ("kalkaji_extension", "Kalkaji Extension / GK-2 Junction", 28.5490, 77.2460, 218.0, 3200, "junction"),
+        ("nehru_place", "Nehru Place Commercial Hub", 28.5490, 77.2520, 218.0, 4200, "junction"),
+    ])
 
     add_corridor([
         ("pragati_maidan_east", "Pragati Maidan Ring Road Bypass", 28.6180, 77.2540, 213.0, 3200, "junction"),
@@ -753,6 +843,7 @@ def build_dense_network():
         ("khanpur_chowk", "Khanpur T-Point / MB Road", 28.5210, 77.2380, 220.0, 3600, "junction"),
         ("batra_hospital", "Batra Hospital & Medical Research", 28.5180, 77.2500, 218.0, 3800, "hospital"),
         ("sangam_vihar_crossing", "Sangam Vihar MB Road Entry", 28.5150, 77.2650, 216.0, 3700, "junction"),
+        ("tigri_mb_road", "Tigri MB Road Junction", 28.5135, 77.2790, 214.5, 3300, "junction"),
         ("pul_prahladpur_sag", "Pul Prahladpur Underpass Sag", 28.5120, 77.2920, 208.5, 4300, "sag"),
     ])
     add_edge("khanpur_chowk", "batra_hospital")
@@ -780,8 +871,19 @@ def build_dense_network():
         ("max_hospital_patparganj", "Max Super Speciality Patparganj", 28.6300, 77.3080, 214.5, 4200, "hospital"),
         ("anand_vihar_isbt", "Anand Vihar ISBT & Railway Terminal", 28.6470, 77.3150, 214.0, 4900, "railway"),
     ])
-    add_edge("shakarpur_crossing", "akshardham_junction")
-    add_edge("laxmi_nagar_chowk", "max_hospital_patparganj")
+    # shakarpur_crossing -> akshardham_junction via IP Extension road (2.13km)
+    add_corridor([
+        ("shakarpur_crossing", "Shakarpur Vikas Marg Crossing", 28.6300, 77.2680, 213.0, 3200, "junction"),
+        ("ip_ext_patparganj_rd", "IP Extension Patparganj Road", 28.6215, 77.2730, 213.0, 3100, "junction"),
+        ("akshardham_junction", "Akshardham Temple NH-9 Junction", 28.6130, 77.2780, 213.0, 4200, "junction"),
+    ])
+    # laxmi_nagar_chowk -> max_hospital_patparganj via Krishna Nagar (3.03km)
+    add_corridor([
+        ("laxmi_nagar_chowk", "Laxmi Nagar Vikas Marg Chowk", 28.6305, 77.2770, 213.2, 4000, "junction"),
+        ("krishna_nagar_cross", "Krishna Nagar Ring Road Crossing", 28.6300, 77.2930, 213.5, 3200, "junction"),
+        ("patparganj_industrial", "Patparganj Industrial Area", 28.6300, 77.3005, 214.0, 3200, "junction"),
+        ("max_hospital_patparganj", "Max Super Speciality Patparganj", 28.6300, 77.3080, 214.5, 4200, "hospital"),
+    ])
 
     add_corridor([
         ("anand_vihar_isbt", "Anand Vihar ISBT & Railway Terminal", 28.6470, 77.3150, 214.0, 4900, "railway"),
@@ -792,8 +894,22 @@ def build_dense_network():
         ("shastri_park_metro", "Shastri Park Metro / GT Road", 28.6680, 77.2620, 213.5, 3500, "junction"),
         ("kashmere_gate_sag", "Kashmere Gate Ring Road Sag", 28.6640, 77.2340, 211.8, 3600, "sag"),
     ])
-    add_edge("shastri_park_metro", "delhi_gate")
-    add_edge("shahdara_flyover", "laxmi_nagar_chowk")
+    # shastri_park_metro -> delhi_gate via Seelampur / Ghazipur Road (3.87km)
+    add_corridor([
+        ("shastri_park_metro", "Shastri Park Metro / GT Road", 28.6680, 77.2620, 213.5, 3500, "junction"),
+        ("seelampur_ring", "Seelampur Ring Road Junction", 28.6620, 77.2510, 213.5, 3300, "junction"),
+        ("welcome_ring", "Welcome Ring Road Crossing", 28.6530, 77.2440, 213.5, 3200, "junction"),
+        ("yamuna_bank_north", "Yamuna Bank North GT Road", 28.6470, 77.2390, 213.5, 3100, "junction"),
+        ("delhi_gate", "Delhi Gate Heritage Circle", 28.6360, 77.2440, 213.8, 3700, "junction"),
+    ])
+    # shahdara_flyover -> laxmi_nagar_chowk via Krishna Nagar / Yamuna Vihar (4.89km)
+    add_corridor([
+        ("shahdara_flyover", "Shahdara GT Road Flyover", 28.6730, 77.2900, 214.0, 3600, "junction"),
+        ("yamuna_vihar_ring", "Yamuna Vihar Ring Road Junction", 28.6760, 77.2980, 214.2, 3200, "junction"),
+        ("seelam_pur", "Seelampur Crossing", 28.6680, 77.2870, 213.8, 3300, "junction"),
+        ("krishna_nagar_jcn", "Krishna Nagar Junction", 28.6580, 77.2830, 213.5, 3400, "junction"),
+        ("laxmi_nagar_chowk", "Laxmi Nagar Vikas Marg Chowk", 28.6305, 77.2770, 213.2, 4000, "junction"),
+    ])
     add_edge("sarai_kale_khan_isbt", "hazrat_nizamuddin")
 
     # ═════════════════════════════════════════════════════════════════
@@ -937,7 +1053,9 @@ def build_dense_network():
     add_edge("purana_qila_service", "pragati_maidan_east")
     add_edge("kaka_nagar_service", "khan_market_metro")
     add_edge("golf_links_service", "khan_market_metro")
-    add_edge("sunder_nagar_service", "pragati_maidan_east")
+    add_node("mathura_road_mid", "Mathura Road Mid Point", 28.6080, 77.2480, 214.0, 3200, "junction")
+    add_edge("sunder_nagar_service", "mathura_road_mid")
+    add_edge("mathura_road_mid", "pragati_maidan_east")
     add_edge("purana_qila_service", "sunder_nagar_service")
     add_edge("kaka_nagar_service", "golf_links_service")
 
@@ -976,7 +1094,9 @@ def build_dense_network():
     add_edge("firoz_gandhi_road_lane", "lajpat_nagar")
     add_edge("lajpat_central_market_lane", "lajpat_nagar")
     add_edge("moolchand_service_road", "moolchand_hospital")
-    add_edge("ring_road_service_south", "aiims_delhi")
+    add_node("south_ex_service_mid", "South Ex Service Midpoint", 28.5678, 77.2190, 216.5, 3000, "junction")
+    add_edge("ring_road_service_south", "south_ex_service_mid")
+    add_edge("south_ex_service_mid", "aiims_delhi")
     add_edge("safdarjung_enclave_lane", "safdarjung_hospital")
     add_edge("moolchand_service_road", "ring_road_service_south")
 
@@ -1086,7 +1206,9 @@ def build_dense_network():
     add_edge("moolchand_lala_lajpat_slip", "moolchand_hospital")
     add_edge("moolchand_defcol_feeder", "moolchand_hospital")
     add_edge("moolchand_lala_lajpat_slip", "moolchand_underpass")
-    add_edge("moolchand_defcol_feeder", "south_extension")
+    add_node("defcol_ring_road_mid", "Defence Colony Ring Road Midpoint", 28.5686, 77.2292, 216.0, 3100, "junction")
+    add_edge("moolchand_defcol_feeder", "defcol_ring_road_mid")
+    add_edge("defcol_ring_road_mid", "south_extension")
 
     # --- 9. Fortis Escorts & Holy Family Hospital Southeast Grid ---
     add_corridor([
@@ -1113,7 +1235,12 @@ def build_dense_network():
     add_edge("apollo_mathura_road_service", "apollo_hospital_sarita_vihar")
     add_edge("apollo_jasola_link", "apollo_hospital_sarita_vihar")
     add_edge("apollo_mathura_road_service", "sarita_vihar_crossing")
-    add_edge("apollo_jasola_link", "mohan_cooperative")
+    # apollo_jasola_link -> mohan_cooperative (1.994km) via Jasola intermediate
+    add_corridor([
+        ("apollo_jasola_link", "Jasola - Apollo Link Road", 28.5380, 77.2895, 214.5, 1300, "junction"),
+        ("jasola_vihar_crossing", "Jasola Vihar District Centre", 28.5280, 77.2960, 214.2, 3200, "junction"),
+        ("mohan_cooperative", "Mohan Cooperative Industrial Area", 28.5210, 77.2960, 214.0, 3300, "junction"),
+    ])
 
     # --- 11. GTB Hospital & UCMS Shahdara Ingress ---
     add_corridor([
@@ -1124,7 +1251,12 @@ def build_dense_network():
     add_edge("gtb_emergency_trauma_bay", "gtb_hospital_shahdara")
     add_edge("gtb_ucms_campus_feeder", "gtb_hospital_shahdara")
     add_edge("gtb_tahirpur_road_link", "gtb_hospital_shahdara")
-    add_edge("gtb_tahirpur_road_link", "shahdara_flyover")
+    # gtb_tahirpur_road_link -> shahdara_flyover (2.193km) via Loni Road intermediate
+    add_corridor([
+        ("gtb_tahirpur_road_link", "Tahirpur Road Hospital Detour", 28.6820, 77.3100, 214.7, 1300, "junction"),
+        ("loni_road_jcn", "Loni Road / Shahdara Ring Road Junction", 28.6775, 77.3000, 214.3, 3200, "junction"),
+        ("shahdara_flyover", "Shahdara GT Road Flyover", 28.6730, 77.2900, 214.0, 3600, "junction"),
+    ])
     add_edge("gtb_ucms_campus_feeder", "dilshad_garden_metro")
 
     # --- 12. Max Super Speciality Hospital Patparganj Ingress ---
@@ -1136,8 +1268,18 @@ def build_dense_network():
     add_edge("max_patparganj_emergency_bay", "max_hospital_patparganj")
     add_edge("max_patparganj_ip_ext_lane", "max_hospital_patparganj")
     add_edge("max_patparganj_madhu_vihar", "max_hospital_patparganj")
-    add_edge("max_patparganj_ip_ext_lane", "anand_vihar_isbt")
-    add_edge("max_patparganj_madhu_vihar", "laxmi_nagar_chowk")
+    # max_patparganj_ip_ext_lane -> anand_vihar_isbt (2.064km) via Patparganj Road intermediate
+    add_corridor([
+        ("max_patparganj_ip_ext_lane", "IP Extension Parallel Service Road", 28.6292, 77.3090, 214.4, 1400, "junction"),
+        ("patparganj_rd_mid", "Patparganj Road Mid Junction", 28.6380, 77.3120, 214.2, 3100, "junction"),
+        ("anand_vihar_isbt", "Anand Vihar ISBT & Railway Terminal", 28.6470, 77.3150, 214.0, 4900, "railway"),
+    ])
+    # max_patparganj_madhu_vihar -> laxmi_nagar_chowk (2.784km) via Vikas Marg intermediate
+    add_corridor([
+        ("max_patparganj_madhu_vihar", "Madhu Vihar Road Access", 28.6315, 77.3055, 214.3, 1300, "junction"),
+        ("vikas_marg_ip_ext", "Vikas Marg / IP Extension Junction", 28.6310, 77.2960, 213.8, 3100, "junction"),
+        ("laxmi_nagar_chowk", "Laxmi Nagar Vikas Marg Chowk", 28.6305, 77.2770, 213.2, 4000, "junction"),
+    ])
 
     # ═════════════════════════════════════════════════════════════════
     # 13D. ULTRA-DENSE 10 KM RADIUS URBAN STREET MESH (6,300+ NODES)

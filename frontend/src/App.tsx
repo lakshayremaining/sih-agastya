@@ -65,8 +65,8 @@ export default function App() {
   const [chokeMode, setChokeMode] = useState<boolean>(false);
 
   const [showRoute, setShowRoute] = useState<boolean>(true);
-  const [routeSource, setRouteSource] = useState<string>('kashmere_gate_isbt');
-  const [routeTarget, setRouteTarget] = useState<string>('cp_outer_n');
+  const [routeSource, setRouteSource] = useState<string>('');
+  const [routeTarget, setRouteTarget] = useState<string>('');
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [routePath, setRoutePath] = useState<PathCoord[]>([]);
 

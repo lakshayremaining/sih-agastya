@@ -548,6 +548,7 @@ export default function FloodMap({
                 padding: '2px 4px',
               }}
             >
+              <option value="" style={{ background: '#0f172a', color: '#64748b' }}>— Select Destination —</option>
               <optgroup label="⭐ Top 15 Emergency Hospital & Trauma Hubs (Fast O(1) Cache)">
                 {TOP_15_DESTINATIONS.map((d: any) => {
                   const dDepth = nodeDepthMap.get(d.id) ?? 0;

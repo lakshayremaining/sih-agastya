@@ -228,6 +228,7 @@ export default function Sidebar({
               cursor: 'pointer',
             }}
           >
+            <option value="" style={{ background: '#0f172a', color: '#64748b' }}>— Select Starting Location —</option>
             {STARTING_LOCATIONS_12.map((loc: any) => (
               <option key={loc.id} value={loc.id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
                 {loc.name} ({loc.area})
