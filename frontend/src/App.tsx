@@ -65,7 +65,7 @@ export default function App() {
   const [chokeMode, setChokeMode] = useState<boolean>(false);
 
   const [showRoute, setShowRoute] = useState<boolean>(true);
-  const [routeSource, setRouteSource] = useState<string>('');
+  const [routeSource, setRouteSource] = useState<string>('ito_junction');
   const [routeTarget, setRouteTarget] = useState<string>('');
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [routePath, setRoutePath] = useState<PathCoord[]>([]);
