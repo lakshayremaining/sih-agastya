@@ -79,6 +79,7 @@ def get_routing_cost(road_G: nx.Graph, u: str, v: str, depth_cm: Optional[dict[s
 
 def prewarm_baseline_all_pairs(road_G: nx.Graph):
     """Pre-compute unconstrained baseline shortest paths for key hospital hubs on graph startup."""
+    return
     global _BASELINE_ALL_PAIRS_CACHE
     try:
         # Assign baseline routing costs
