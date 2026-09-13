@@ -8,3 +8,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+
+  - type: web
+    name: agastya-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_API_BASE
+        fromService:
+          type: web
+          name: agastya-backend
+          envVarKey: RENDER_EXTERNAL_URL
