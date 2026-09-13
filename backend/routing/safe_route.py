@@ -26,14 +26,15 @@ def _get_cache_key(
     source: str,
     target: str,
     threshold_cm: float,
-    depth_cm: dict[str, float]
+    depth_cm: dict[str, float],
+    blocked_nodes: Optional[list[str]] = None,
 ) -> tuple:
     """Build a deterministic hashable cache key from route request and flood depth state."""
-    # Round depths to 1 decimal place and only include flooded/non-zero nodes for compact key
     flooded_items = tuple(
         sorted((k, round(v, 1)) for k, v in depth_cm.items() if v > 0.0)
     )
-    return (source, target, round(threshold_cm, 1), flooded_items)
+    blocked_items = tuple(sorted(str(b) for b in (blocked_nodes or [])))
+    return (source, target, round(threshold_cm, 1), flooded_items, blocked_items)
 
 
 def clear_route_cache():
@@ -44,7 +45,7 @@ def clear_route_cache():
 def is_arterial_node(node_id: str) -> bool:
     """Check if node belongs to primary arterial road network (not unclassified mesh alley)."""
     nid = str(node_id).lower()
-    return not (nid.startswith("mesh_") or "_wp" in nid)
+    return not nid.startswith("mesh_")
 
 
 def get_routing_cost(road_G: nx.Graph, u: str, v: str, depth_cm: Optional[dict[str, float]] = None) -> float:
@@ -226,6 +227,7 @@ def safe_route(
     source: str,
     target: str,
     threshold_cm: float = 15.0,
+    blocked_nodes: Optional[list[str]] = None,
     use_cache: bool = True,
 ) -> dict:
     """
@@ -250,7 +252,7 @@ def safe_route(
     # 1. Check in-memory route cache for instant O(1) hit
     cache_key = None
     if use_cache:
-        cache_key = _get_cache_key(source, target, threshold_cm, depth_cm)
+        cache_key = _get_cache_key(source, target, threshold_cm, depth_cm, blocked_nodes)
         if cache_key in _ROUTE_CACHE:
             cached = _ROUTE_CACHE[cache_key].copy()
             cached["cached"] = True
@@ -447,12 +449,17 @@ def safe_route(
     # Build safe subgraph: clone baseline road network
     G = road_G.copy()
 
-    # Identify and remove flooded intermediate nodes
-    blocked_nodes = []
+    # Identify and remove flooded intermediate nodes & user-choked nodes
+    blocked_list = list(blocked_nodes) if blocked_nodes else []
+    for bn in blocked_list:
+        if str(bn) in G.nodes and str(bn) != source and str(bn) != target:
+            G.remove_node(str(bn))
+
     for n, d in depth_cm.items():
         if d > threshold_cm and n in G.nodes:
             if n != source and n != target:
-                blocked_nodes.append(str(n))
+                if str(n) not in blocked_list:
+                    blocked_list.append(str(n))
                 G.remove_node(n)
 
     # Edge-level safety: remove road segments where either endpoint is inundated
@@ -487,8 +494,8 @@ def safe_route(
             "normal_max_depth_cm": round(normal_max_depth, 1),
             "safe_max_depth_cm": 0.0,
             "is_rerouted": False,
-            "blocked_nodes": blocked_nodes,
-            "blocked_count": len(blocked_nodes),
+            "blocked_nodes": blocked_list,
+            "blocked_count": len(blocked_list),
             "eta_normal_sec": 0.0,
             "eta_safe_sec": 0.0,
             "eta_sec": 0.0,
@@ -496,7 +503,7 @@ def safe_route(
             "detour_delay_sec": 0.0,
             "detour_extra_m": 0.0,
             "detour_m": 0.0,
-            "avoided_segments": len(blocked_nodes) + len(pruned_edges),
+            "avoided_segments": len(blocked_list) + len(pruned_edges),
             "reachable": False,
             "reason": "NO_SAFE_ROUTE",
             "origin_depth_cm": round(source_depth, 1),
@@ -523,7 +530,7 @@ def safe_route(
 
     safe_path_str = [str(n) for n in safe_path]
     safe_max_depth = max([depth_cm.get(str(n), 0.0) for n in safe_path_str], default=0.0)
-    is_rerouted = (normal_path != safe_path_str) and (normal_max_depth > threshold_cm or len(blocked_nodes) > 0)
+    is_rerouted = (normal_path != safe_path_str) and (normal_max_depth > threshold_cm or len(blocked_list) > 0)
     alternate_routes = compute_alternate_routes(road_G, depth_cm, source, target, safe_path_str, normal_path, threshold_cm)
 
     res = {
@@ -535,8 +542,8 @@ def safe_route(
         "normal_max_depth_cm": round(normal_max_depth, 1),
         "safe_max_depth_cm": round(safe_max_depth, 1),
         "is_rerouted": is_rerouted,
-        "blocked_nodes": blocked_nodes,
-        "blocked_count": len(blocked_nodes),
+        "blocked_nodes": blocked_list,
+        "blocked_count": len(blocked_list),
         "eta_normal_sec": round(eta_normal, 1),
         "eta_safe_sec": round(eta_safe, 1),
         "eta_sec": round(eta_safe, 1),
@@ -544,7 +551,7 @@ def safe_route(
         "detour_delay_sec": round(detour_delay, 1),
         "detour_extra_m": round(detour_extra, 1),
         "detour_m": round(detour_extra, 1),
-        "avoided_segments": len(blocked_nodes) + len(pruned_edges),
+        "avoided_segments": len(blocked_list) + len(pruned_edges),
         "alternate_routes": alternate_routes,
         "reachable": True,
         "reason": "ROUTE_FOUND",
@@ -552,7 +559,7 @@ def safe_route(
         "destination_depth_cm": round(target_depth, 1),
         "threshold_cm": threshold_cm,
         "message": (
-            f"Safe route computed ({safe_distance:.0f}m) avoiding {len(blocked_nodes)} inundated road segments "
+            f"Safe route computed ({safe_distance:.0f}m) avoiding {len(blocked_list)} inundated road segments "
             f"(clearance threshold {threshold_cm:.0f} cm)."
         ),
         "cached": False,

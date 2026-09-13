@@ -229,7 +229,7 @@ async def api_route(req: RouteRequest):
     else:
         depths = simulate(GRAPH, req.rain_mm, req.minutes, blocked_nodes=req.blocked_nodes)
 
-    result = safe_route(GRAPH, depths, req.source, req.target, req.threshold_cm)
+    result = safe_route(GRAPH, depths, req.source, req.target, req.threshold_cm, blocked_nodes=req.blocked_nodes)
 
     # Add coordinates for path visualization
     coords = get_node_coordinates(GRAPH)

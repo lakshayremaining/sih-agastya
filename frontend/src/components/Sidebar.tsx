@@ -108,19 +108,18 @@ export default function Sidebar({
             width: '100%',
             padding: '10px 12px',
             borderRadius: 8,
-            background: isAutoSim
-              ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)'
-              : 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 50%, #ec4899 100%)',
-            border: isAutoSim ? '1px solid #fca5a5' : '1px solid rgba(255, 255, 255, 0.3)',
+            background: isAutoSim ? '#dc2626' : '#2563eb',
+            border: 'none',
             color: '#ffffff',
             fontSize: 12,
-            fontWeight: 800,
+            fontWeight: 600,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: 6,
-            boxShadow: isAutoSim ? '0 0 16px rgba(239, 68, 68, 0.5)' : '0 4px 14px rgba(99, 102, 241, 0.4)',
+            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+            transition: 'background 0.2s ease',
           }}
         >
           <span>{isAutoSim ? '⏹️' : '🚨'}</span>
@@ -139,11 +138,11 @@ export default function Sidebar({
             width: '100%',
             padding: '9px 12px',
             borderRadius: 8,
-            background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(16,185,129,0.2))',
-            border: '1px solid rgba(59,130,246,0.4)',
-            color: '#60a5fa',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#94a3b8',
             fontSize: 11.5,
-            fontWeight: 700,
+            fontWeight: 600,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -209,7 +208,7 @@ export default function Sidebar({
             style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}
           >
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-            <span>Select Dispatch Starting Location (12 Hubs)</span>
+            <span>Select Dispatch Starting Location (14 Hubs)</span>
           </label>
 
           <select
@@ -229,7 +228,7 @@ export default function Sidebar({
               cursor: 'pointer',
             }}
           >
-            {STARTING_LOCATIONS_12.map((loc) => (
+            {STARTING_LOCATIONS_12.map((loc: any) => (
               <option key={loc.id} value={loc.id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
                 {loc.name} ({loc.area})
               </option>
@@ -315,6 +314,31 @@ export default function Sidebar({
             <div className="text-[10px] text-slate-400 mt-1">
               Wind: {rainData.wind_speed_kmh} km/h • Station: Delhi Minto Bridge
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                onRainChange(rainData.current_rain_mm);
+                onMinutesChange(30);
+              }}
+              style={{
+                marginTop: 8,
+                width: '100%',
+                padding: '6px 8px',
+                borderRadius: 6,
+                background: 'rgba(6, 182, 212, 0.2)',
+                border: '1px solid rgba(6, 182, 212, 0.4)',
+                color: '#38bdf8',
+                fontSize: 10.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 4
+              }}
+            >
+              <span>📡 Sync Sliders to Live Weather ({rainData.current_rain_mm} mm/hr)</span>
+            </button>
           </div>
         </div>
       )}

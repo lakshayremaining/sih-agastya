@@ -32,14 +32,29 @@ import {
   POTHOLE_HAZARDS,
   simulateLocal,
   findRouteLocal,
-  preWarmAllDestinationRoutes,
+  findOptimalSafeRoutePair,
 } from './lib/networkData';
 
 export default function App() {
   // ─── State ───────────────────────────────────────────────
-  const [rainMm, setRainMm] = useState<number>(35);
-  const [minutes, setMinutes] = useState<number>(30);
+  const [rainMm, setRainMm] = useState<number>(() => {
+    const saved = localStorage.getItem('agastya_sim_rain_mm');
+    return saved ? Number(saved) : 35;
+  });
+  const [minutes, setMinutes] = useState<number>(() => {
+    const saved = localStorage.getItem('agastya_sim_minutes');
+    return saved ? Number(saved) : 30;
+  });
   const [blockedNodes, setBlockedNodes] = useState<string[]>([]);
+
+  // Auto-save slider settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('agastya_sim_rain_mm', String(rainMm));
+  }, [rainMm]);
+
+  useEffect(() => {
+    localStorage.setItem('agastya_sim_minutes', String(minutes));
+  }, [minutes]);
 
   const [nodes, setNodes] = useState<NodeDepth[]>(INITIAL_NODES);
   const [edges, setEdges] = useState<NetworkEdge[]>(INITIAL_EDGES);
@@ -49,9 +64,9 @@ export default function App() {
 
   const [chokeMode, setChokeMode] = useState<boolean>(false);
 
-  const [showRoute, setShowRoute] = useState<boolean>(false);
-  const [routeSource, setRouteSource] = useState<string>('moolchand_flyover_w');
-  const [routeTarget, setRouteTarget] = useState<string>('cp_outer_s');
+  const [showRoute, setShowRoute] = useState<boolean>(true);
+  const [routeSource, setRouteSource] = useState<string>('kashmere_gate_isbt');
+  const [routeTarget, setRouteTarget] = useState<string>('cp_outer_n');
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [routePath, setRoutePath] = useState<PathCoord[]>([]);
 
@@ -73,7 +88,6 @@ export default function App() {
   const debounceTimer = useRef<number | null>(null);
   const simAbortController = useRef<AbortController | null>(null);
   const routeAbortController = useRef<AbortController | null>(null);
-  const idlePrewarmTimer = useRef<number | null>(null);
 
   // ─── Auto Emergency Simulation State ─────────────────────
   const [isAutoSim, setIsAutoSim] = useState<boolean>(false);
@@ -118,6 +132,7 @@ export default function App() {
       try {
         const rain = await fetchLiveRain();
         setRainData(rain);
+        // Pure simulation mode: do NOT force override user's saved simulation rain intensity
       } catch (err) {
         console.warn('Live rain API using cached fallback:', err);
       }
@@ -189,19 +204,12 @@ export default function App() {
     }
     debounceTimer.current = window.setTimeout(() => {
       runSimulation(rainMm, minutes, blockedNodes);
-
-      // Defer background pre-warming when idle to prevent UI stutter
-      if (idlePrewarmTimer.current) window.clearTimeout(idlePrewarmTimer.current);
-      idlePrewarmTimer.current = window.setTimeout(() => {
-        preWarmAllDestinationRoutes(routeSource, rainMm, 15, minutes, blockedNodes);
-      }, 250);
-    }, 60);
+    }, 120);
 
     return () => {
       if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
-      if (idlePrewarmTimer.current) window.clearTimeout(idlePrewarmTimer.current);
     };
-  }, [rainMm, minutes, blockedNodes, routeSource, runSimulation]);
+  }, [rainMm, minutes, blockedNodes, runSimulation]);
 
   // ─── Immediate Route Invalidation ─────────────────────────
   useEffect(() => {
@@ -288,6 +296,18 @@ export default function App() {
     autoSimTimersRef.current.forEach(t => window.clearTimeout(t));
     autoSimTimersRef.current = [];
 
+    // Map current depths
+    const depthsMap: Record<string, number> = {};
+    nodes.forEach(n => { depthsMap[n.node_id] = n.depth_cm; });
+
+    // Dynamically search for the most efficient pair with AT LEAST 1 safe route
+    const optimalPair = findOptimalSafeRoutePair(rainMm, minutes, blockedNodes, depthsMap);
+
+    const srcId = optimalPair ? optimalPair.source : 'kashmere_gate_isbt';
+    const tgtId = optimalPair ? optimalPair.target : 'cp_outer_n';
+    const srcNameClean = optimalPair ? optimalPair.sourceName.replace(/^\d+\.\s*/, '') : 'Kashmere Gate ISBT';
+    const tgtNameClean = optimalPair ? optimalPair.targetName.replace(/^\d+\.\s*/, '') : 'CP Outer Circle North';
+
     setIsAutoSim(true);
     setAutoSimStep(1);
     setAutoSimMessage(`⛈️ STAGE 1: Storm Simulation Active (${rainMm} mm/hr for ${minutes} min) — Calculating hydrologic runoff & catchment ponding...`);
@@ -295,45 +315,58 @@ export default function App() {
     // Stage 1: Active storm setup using slider values
     setBlockedNodes([]);
     setChokeMode(false);
-    setRouteSource('moolchand_flyover_w');
-    setRouteTarget('cp_outer_s');
+    setRouteSource(srcId);
+    setRouteTarget(tgtId);
     setShowRoute(true);
     setSimAmbulanceCoord(null);
+
+    if (optimalPair && optimalPair.route) {
+      setRouteResult(optimalPair.route);
+      if (optimalPair.route.reachable) {
+        setRoutePath(optimalPair.route.path_coords || []);
+      }
+    }
 
     // Stage 2: Emergency Alert Ingress (T = 2.4s)
     const t2 = window.setTimeout(() => {
       setAutoSimStep(2);
-      setAutoSimMessage(`🚨 STAGE 2: Emergency 108 Dispatch Ingress! Ambulance dispatched from Moolchand Flyover West to CP Outer Circle South (${rainMm} mm/hr rain).`);
+      setAutoSimMessage(`🚨 STAGE 2: Emergency Dispatch Ingress! Auto-selected optimal origin [${srcNameClean}] to destination [${tgtNameClean}] (${rainMm} mm/hr rain).`);
     }, 2400);
     autoSimTimersRef.current.push(t2);
 
     // Stage 3: Agastya Model Computes Safe Detour (T = 4.8s)
     const t3 = window.setTimeout(() => {
       setAutoSimStep(3);
-      setAutoSimMessage(`🧠 STAGE 3: Agastya AI Routing Active! Dynamic safe route computed from Moolchand Flyover West via Ring Road & Janpath (${rainMm} mm/hr intensity, ${minutes} min duration).`);
+      const distStr = optimalPair?.route?.distance_m ? `${optimalPair.route.distance_m}m` : 'safe corridor';
+      const etaStr = optimalPair?.route?.eta_safe_sec ? `~${Math.ceil(optimalPair.route.eta_safe_sec / 60)} min` : 'optimal ETA';
+      const rerouteStr = optimalPair?.route?.is_rerouted ? 'with dynamic flood bypass' : 'via direct safe street network';
+      setAutoSimMessage(`🧠 STAGE 3: Agastya AI Routing Active! Safe route predicted (${distStr} · ETA ${etaStr}) from ${srcNameClean} ➔ ${tgtNameClean} ${rerouteStr} (≤15cm clearance).`);
     }, 4800);
     autoSimTimersRef.current.push(t3);
 
     // Stage 4: Live Ambulance Transit (T = 7.2s to 18.0s)
     const t4 = window.setTimeout(() => {
       setAutoSimStep(4);
-      setAutoSimMessage(`🚑 STAGE 4: Ambulance DL-1R-9988 in transit from Moolchand Flyover West to CP Outer Circle South (${rainMm} mm/hr storm environment)...`);
+      setAutoSimMessage(`🚑 STAGE 4: Ambulance DL-1R-9988 in transit from ${srcNameClean} to ${tgtNameClean} (${rainMm} mm/hr storm environment)...`);
 
-      // Pre-calculated route coordinate waypoints from Moolchand Flyover West to CP Outer Circle South
-      const waypoints = [
-        { lat: 28.5652, lon: 77.2341, name: 'Moolchand Flyover West' },
-        { lat: 28.5720, lon: 77.2380, name: 'Lajpat Nagar Ring Road' },
-        { lat: 28.5880, lon: 77.2530, name: 'Hazrat Nizamuddin Railway Flyover' },
-        { lat: 28.6020, lon: 77.2440, name: 'Sunder Nagar / Zoo Arc' },
-        { lat: 28.6129, lon: 77.2295, name: 'India Gate Outer C-Hexagon' },
-        { lat: 28.6180, lon: 77.2210, name: 'Windsor Place Ingress' },
-        { lat: 28.6225, lon: 77.2185, name: 'Janpath Junction' },
-        { lat: 28.6275, lon: 77.2190, name: 'CP Outer Circle South' },
-      ];
+      // Dynamic waypoints calculated from Dijkstra safe path coordinates
+      const waypoints = (optimalPair?.route?.path_coords && optimalPair.route.path_coords.length >= 2)
+        ? optimalPair.route.path_coords.map((pt: any) => ({ lat: pt.lat, lon: pt.lon, name: pt.name }))
+        : [
+            { lat: 28.5652, lon: 77.2341, name: 'Moolchand Flyover West' },
+            { lat: 28.5720, lon: 77.2380, name: 'Lajpat Nagar Ring Road' },
+            { lat: 28.5880, lon: 77.2530, name: 'Hazrat Nizamuddin Railway Flyover' },
+            { lat: 28.6020, lon: 77.2440, name: 'Sunder Nagar / Zoo Arc' },
+            { lat: 28.6129, lon: 77.2295, name: 'India Gate Outer C-Hexagon' },
+            { lat: 28.6180, lon: 77.2210, name: 'Windsor Place Ingress' },
+            { lat: 28.6225, lon: 77.2185, name: 'Janpath Junction' },
+            { lat: 28.6275, lon: 77.2190, name: 'CP Outer Circle South' },
+          ];
 
       const totalPoints = waypoints.length;
-      waypoints.forEach((pt, idx) => {
-        const stepDelay = 500 + (idx * 1300);
+      const stepDuration = Math.max(700, Math.floor(9500 / totalPoints));
+      waypoints.forEach((pt: any, idx: number) => {
+        const stepDelay = 400 + (idx * stepDuration);
         const transitTimer = window.setTimeout(() => {
           const progress = Math.min(100, Math.round(((idx + 1) / totalPoints) * 100));
           setSimAmbulanceCoord({
@@ -349,18 +382,22 @@ export default function App() {
     autoSimTimersRef.current.push(t4);
 
     // Stage 5: Mission Accomplished & User Handover (T = 18.0s)
+    const lastPt = (optimalPair?.route?.path_coords && optimalPair.route.path_coords.length > 0)
+      ? optimalPair.route.path_coords[optimalPair.route.path_coords.length - 1]
+      : { lat: 28.6275, lon: 77.2190, name: tgtNameClean };
+
     const t5 = window.setTimeout(() => {
       setAutoSimStep(5);
-      setAutoSimMessage(`✅ STAGE 5: MISSION ACCOMPLISHED! Ambulance safely reached CP Outer Circle South under ${rainMm} mm/hr storm conditions.`);
+      setAutoSimMessage(`✅ STAGE 5: MISSION ACCOMPLISHED! Ambulance safely reached ${tgtNameClean} from ${srcNameClean} under ${rainMm} mm/hr storm conditions.`);
       setSimAmbulanceCoord({
-        lat: 28.6275,
-        lon: 77.2190,
-        name: 'CP Outer Circle South',
+        lat: lastPt.lat,
+        lon: lastPt.lon,
+        name: lastPt.name || tgtNameClean,
         progress: 100,
       });
     }, 18000);
     autoSimTimersRef.current.push(t5);
-  }, [rainMm, minutes]);
+  }, [rainMm, minutes, blockedNodes, nodes]);
   void startAutoSim;
 
   // ─── Node Click & Route Selection Handlers ──────────────────

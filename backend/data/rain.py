@@ -17,6 +17,9 @@ CACHE_DIR = Path(__file__).parent / "cache"
 CACHE_FILE = CACHE_DIR / "rain.json"
 
 # Minto Bridge, Delhi
+LATITUDE = 28.6280
+LONGITUDE = 77.2197
+
 # In-memory TTL cache for live rain data (300 seconds / 5 mins)
 _LIVE_RAIN_MEMORY_CACHE: dict = {}
 _LIVE_RAIN_CACHE_TIME: float = 0.0

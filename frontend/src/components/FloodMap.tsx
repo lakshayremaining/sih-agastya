@@ -73,14 +73,21 @@ function getDepthOpacity(depth: number): number {
 // Component to handle map view updates
 function MapUpdater({ center, zoom, routePath = [] }: { center: [number, number]; zoom: number; routePath?: PathCoord[] }) {
   const map = useMap();
+  const routeKey = useMemo(() => {
+    if (!routePath || routePath.length <= 1) return '';
+    const start = routePath[0];
+    const end = routePath[routePath.length - 1];
+    return `${start.lat}_${start.lon}_${end.lat}_${end.lon}_${routePath.length}`;
+  }, [routePath]);
+
   useEffect(() => {
-    if (routePath && routePath.length > 1) {
+    if (routeKey) {
       const bounds = routePath.map(p => [p.lat, p.lon] as [number, number]);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
     } else {
       map.setView(center, zoom);
     }
-  }, [center, zoom, routePath, map]);
+  }, [center, zoom, routeKey, map]);
   return null;
 }
 
@@ -474,21 +481,36 @@ export default function FloodMap({
               value={routeSource || ''}
               onChange={(e) => onSelectOrigin && onSelectOrigin(e.target.value)}
               style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#34d399',
-                fontWeight: 700,
+                background: 'rgba(15, 23, 42, 0.9)',
+                border: '1px solid rgba(16, 185, 129, 0.4)',
+                borderRadius: 4,
+                color: '#ffffff',
+                fontWeight: 800,
                 fontSize: 11,
                 cursor: 'pointer',
                 outline: 'none',
-                maxWidth: 160,
+                maxWidth: 240,
+                padding: '2px 4px',
               }}
             >
-              {dropdownLandmarkNodes.map(n => (
-                <option key={n.node_id} value={n.node_id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
-                  {n.name}
-                </option>
-              ))}
+              <optgroup label="⭐ Dispatch Starting Locations & Hubs">
+                {TOP_15_DESTINATIONS.map((d: any) => {
+                  const dDepth = nodeDepthMap.get(d.id) ?? 0;
+                  const isSafe = dDepth <= 15;
+                  return (
+                    <option key={d.id} value={d.id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
+                      {d.icon} {d.name} ({isSafe ? '🟢 Passable' : '🚨 Inundated'} - {dDepth.toFixed(1)}cm)
+                    </option>
+                  );
+                })}
+              </optgroup>
+              <optgroup label="📍 Primary Landmark Corridors & Intersections">
+                {dropdownLandmarkNodes.map(n => (
+                  <option key={n.node_id} value={n.node_id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
+                    {n.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -1268,23 +1290,44 @@ export default function FloodMap({
         {/* Safe ambulance route — Glowing Emerald Line with animated ant-march */}
         {showRoute && routePath.length > 1 && (
           <>
-            {/* Glow backing */}
+            {/* Glow backing with interactive click-to-choke path */}
             <Polyline
               positions={routePath.map(p => [p.lat, p.lon] as [number, number])}
               pathOptions={{
                 color: '#10b981',
-                weight: 14,
-                opacity: 0.18,
+                weight: 16,
+                opacity: 0.25,
+                lineCap: 'round',
+                lineJoin: 'round',
               }}
-            />
+              eventHandlers={{
+                click: (e) => {
+                  e.originalEvent?.stopPropagation();
+                  if (onChokeActiveRoute) onChokeActiveRoute();
+                },
+              }}
+            >
+              <Tooltip sticky direction="top">
+                <span style={{ fontWeight: 700, color: '#0f172a' }}>🚧 Click road path to choke corridor & trigger dynamic safe reroute</span>
+              </Tooltip>
+            </Polyline>
+
             {/* Solid core */}
             <Polyline
               positions={routePath.map(p => [p.lat, p.lon] as [number, number])}
               pathOptions={{
                 color: '#10b981',
-                weight: 5,
+                weight: 6,
                 opacity: 0.95,
-                className: 'route-ant-march',
+                lineCap: 'round',
+                lineJoin: 'round',
+                className: 'route-ant-march cursor-pointer',
+              }}
+              eventHandlers={{
+                click: (e) => {
+                  e.originalEvent?.stopPropagation();
+                  if (onChokeActiveRoute) onChokeActiveRoute();
+                },
               }}
             />
 

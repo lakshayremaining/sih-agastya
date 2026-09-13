@@ -75,7 +75,7 @@ def build_dense_network():
                 "slope": calc_slope
             })
 
-    def add_corridor(node_ids_with_meta, diameter=0.9, max_segment_len=1800.0):
+    def add_corridor(node_ids_with_meta, diameter=0.9, max_segment_len=400.0):
         """Add a sequence of connected nodes representing a street corridor without artificial collinear spam."""
         expanded_chain = []
 
@@ -492,6 +492,28 @@ def build_dense_network():
         ("cp_outer_w", "CP Outer Circle West (Panchkuian Ext)", 28.6315, 77.2132, 216.5, 3200, "junction"),
         ("lady_hardinge", "Lady Hardinge Medical College & Hospital", 28.6325, 77.2135, 216.0, 3500, "hospital"),
         ("panchkuian_road_1", "Panchkuian Road Junction", 28.6350, 77.2080, 216.5, 3000, "junction"),
+    ])
+
+    add_node("lady_hardinge_hospital", "Lady Hardinge Medical College & Hospital", 28.6328, 77.2138, 216.4, 3500, "hospital")
+    add_edge("lady_hardinge_hospital", "lady_hardinge", diameter=1.2)
+    add_edge("lady_hardinge_hospital", "cp_outer_w", diameter=1.2)
+    add_edge("lady_hardinge_hospital", "panchkuian_road_1", diameter=1.2)
+
+    # West Delhi Arterial Corridor (Pusa Road -> Patel Road -> Najafgarh Road -> Jail Road -> Tihar Jail)
+    add_corridor([
+        ("panchkuian_road_1", "Panchkuian Road Junction", 28.6350, 77.2080, 216.5, 3000, "junction"),
+        ("jhandewalan_circle", "Jhandewalan Circle / Pusa Road", 28.6440, 77.2020, 217.5, 3200, "junction"),
+        ("karol_bagh", "Karol Bagh Pusa Road", 28.6445, 77.1890, 219.0, 3500, "junction"),
+        ("rajendra_place", "Rajendra Place Metro / Pusa Road", 28.6440, 77.1780, 219.2, 3300, "junction"),
+        ("patel_nagar_east", "East Patel Nagar Market", 28.6480, 77.1680, 219.0, 3200, "junction"),
+        ("patel_nagar_west", "West Patel Nagar Main Road", 28.6500, 77.1600, 218.8, 3200, "junction"),
+        ("shadipur_metro", "Shadipur Metro / Patel Flyover", 28.6515, 77.1520, 218.5, 3300, "junction"),
+        ("moti_nagar_cross", "Moti Nagar Najafgarh Road Crossing", 28.6550, 77.1400, 218.2, 3400, "junction"),
+        ("karampura_circle", "Karampura Flyover Circle", 28.6540, 77.1320, 218.0, 3200, "junction"),
+        ("rajouri_garden_jcn", "Rajouri Garden Ring Road Flyover", 28.6480, 77.1230, 218.5, 3600, "junction"),
+        ("subhash_nagar", "Subhash Nagar / Najafgarh Road", 28.6410, 77.1120, 218.8, 3300, "junction"),
+        ("tilak_nagar_jail_rd", "Tilak Nagar / Jail Road Crossing", 28.6360, 77.1000, 219.0, 3500, "junction"),
+        ("tihar_jail", "Tihar Jail Complex (Jail Road)", 28.6255, 77.1080, 219.0, 4500, "junction"),
     ])
 
     add_corridor([

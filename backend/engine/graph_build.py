@@ -70,9 +70,78 @@ def generate_minto_bridge_network() -> dict:
     - Realistic pipe diameters based on Delhi's drainage infrastructure reports
     """
 
-    # Real road intersections around Minto Bridge, Delhi
+    # Real road intersections around Minto Bridge & Delhi North Campus
     # These are actual coordinates from OpenStreetMap
     nodes = {
+        # Delhi University North Campus Corridor (Street Centerline Waypoints)
+        "delhi_university": {
+            "lat": 28.6904, "lon": 77.2066, "elevation": 218.0,
+            "catch_area": 4000, "name": "Delhi University (North Campus)"
+        },
+        "delhi_university_gtb_wp1": {
+            "lat": 28.6870, "lon": 77.2100, "elevation": 217.8,
+            "catch_area": 3000, "name": "GTB Road / Patel Chest Crossing"
+        },
+        "mall_road_gtb": {
+            "lat": 28.6835, "lon": 77.2140, "elevation": 217.5,
+            "catch_area": 3200, "name": "Mall Road / GTB Road Crossing"
+        },
+        "rajpur_road_north_wp1": {
+            "lat": 28.6775, "lon": 77.2175, "elevation": 217.2,
+            "catch_area": 2800, "name": "Rajpur Road / Sham Nath Marg Ingress"
+        },
+        "civil_lines_rajpur": {
+            "lat": 28.6720, "lon": 77.2210, "elevation": 217.0,
+            "catch_area": 3000, "name": "Civil Lines / Rajpur Road"
+        },
+        "boulevard_road_wp1": {
+            "lat": 28.6690, "lon": 77.2250, "elevation": 216.5,
+            "catch_area": 3200, "name": "Boulevard Road / Tis Hazari Link"
+        },
+        "kashmere_gate_isbt": {
+            "lat": 28.6665, "lon": 77.2285, "elevation": 216.0,
+            "catch_area": 4500, "name": "Kashmere Gate ISBT Junction"
+        },
+        "lothian_road_chhattaraill": {
+            "lat": 28.6585, "lon": 77.2335, "elevation": 215.8,
+            "catch_area": 3500, "name": "Lothian Road / Chhatta Rail Bridge"
+        },
+        "subhash_marg_redfort": {
+            "lat": 28.6530, "lon": 77.2370, "elevation": 215.5,
+            "catch_area": 3800, "name": "Subhash Marg / Red Fort"
+        },
+        "netaji_subhash_daryaganj": {
+            "lat": 28.6455, "lon": 77.2385, "elevation": 215.0,
+            "catch_area": 3400, "name": "Netaji Subhash Marg / Daryaganj"
+        },
+        "delhi_gate_bsz": {
+            "lat": 28.6380, "lon": 77.2400, "elevation": 214.5,
+            "catch_area": 3500, "name": "Delhi Gate / BSZ Marg Ingress"
+        },
+        "bsz_marg_express_building": {
+            "lat": 28.6335, "lon": 77.2400, "elevation": 214.0,
+            "catch_area": 3200, "name": "BSZ Marg / Express Building"
+        },
+        "ito_junction": {
+            "lat": 28.6285, "lon": 77.2400, "elevation": 213.5,
+            "catch_area": 3500, "name": "ITO Junction / BSZ-DDU Crossing"
+        },
+        "ddu_marg_rouse_avenue": {
+            "lat": 28.6283, "lon": 77.2310, "elevation": 213.8,
+            "catch_area": 2900, "name": "DDU Marg / Rouse Avenue Crossing"
+        },
+        "ddu_marg_east": {
+            "lat": 28.6282, "lon": 77.2220, "elevation": 213.5,
+            "catch_area": 2600, "name": "DDU Marg East"
+        },
+        "ddu_marg_school_lane": {
+            "lat": 28.6280, "lon": 77.2198, "elevation": 213.6,
+            "catch_area": 2700, "name": "DDU Marg / School Lane Junction"
+        },
+        "ddu_marg_west": {
+            "lat": 28.6278, "lon": 77.2175, "elevation": 214.0,
+            "catch_area": 2800, "name": "DDU Marg West"
+        },
         # Minto Bridge underpass and immediate area
         "minto_bridge_center": {
             "lat": 28.6280, "lon": 77.2197, "elevation": 210.5,
@@ -157,6 +226,10 @@ def generate_minto_bridge_network() -> dict:
             "lat": 28.6250, "lon": 77.2290, "elevation": 211.0,
             "catch_area": 3200, "name": "Tilak Bridge Underpass"
         },
+        "ito_junction": {
+            "lat": 28.6285, "lon": 77.2400, "elevation": 213.5,
+            "catch_area": 3500, "name": "ITO Junction / BSZ-DDU Crossing"
+        },
         "ito_approach": {
             "lat": 28.6235, "lon": 77.2320, "elevation": 212.5,
             "catch_area": 2800, "name": "ITO Approach Road"
@@ -188,6 +261,24 @@ def generate_minto_bridge_network() -> dict:
 
     # Real road connections based on Delhi's road network
     edges = [
+        # Delhi University to DDU Marg main road corridor (High-Density Street Centerline Alignment)
+        ("delhi_university", "delhi_university_gtb_wp1", {"diameter": 0.6, "roughness": 0.013}),
+        ("delhi_university_gtb_wp1", "mall_road_gtb", {"diameter": 0.6, "roughness": 0.013}),
+        ("mall_road_gtb", "rajpur_road_north_wp1", {"diameter": 0.6, "roughness": 0.013}),
+        ("rajpur_road_north_wp1", "civil_lines_rajpur", {"diameter": 0.6, "roughness": 0.013}),
+        ("civil_lines_rajpur", "boulevard_road_wp1", {"diameter": 0.6, "roughness": 0.013}),
+        ("boulevard_road_wp1", "kashmere_gate_isbt", {"diameter": 0.6, "roughness": 0.013}),
+        ("kashmere_gate_isbt", "lothian_road_chhattaraill", {"diameter": 0.6, "roughness": 0.013}),
+        ("lothian_road_chhattaraill", "subhash_marg_redfort", {"diameter": 0.6, "roughness": 0.013}),
+        ("subhash_marg_redfort", "netaji_subhash_daryaganj", {"diameter": 0.6, "roughness": 0.013}),
+        ("netaji_subhash_daryaganj", "delhi_gate_bsz", {"diameter": 0.6, "roughness": 0.013}),
+        ("delhi_gate_bsz", "bsz_marg_express_building", {"diameter": 0.6, "roughness": 0.013}),
+        ("bsz_marg_express_building", "ito_junction", {"diameter": 0.6, "roughness": 0.013}),
+        ("ito_junction", "ddu_marg_rouse_avenue", {"diameter": 0.6, "roughness": 0.013}),
+        ("ddu_marg_rouse_avenue", "ddu_marg_east", {"diameter": 0.6, "roughness": 0.013}),
+        ("ddu_marg_east", "ddu_marg_school_lane", {"diameter": 0.6, "roughness": 0.013}),
+        ("ddu_marg_school_lane", "ddu_marg_west", {"diameter": 0.6, "roughness": 0.013}),
+
         # Minto Bridge connections (the critical underpass)
         ("minto_bridge_center", "minto_north", {"diameter": 0.45, "roughness": 0.013}),
         ("minto_bridge_center", "minto_south", {"diameter": 0.45, "roughness": 0.013}),
