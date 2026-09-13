@@ -7,7 +7,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import FloodMap from './components/FloodMap';
-import AlertPanel from './components/AlertPanel';
 import CalculationDrawer from './components/CalculationDrawer';
 import { ToastContainer, useToasts } from './components/ToastNotifications';
 import {
@@ -959,13 +958,6 @@ export default function App() {
             )}
           </div>
         </div>
-
-        {/* Right Floating Alerts, Route & PySewer Panel */}
-        <AlertPanel
-          nodes={nodes}
-          routeResult={routeResult}
-          showRoute={showRoute}
-        />
 
         {/* Bottom Status Bar with Honest Scientific Labels */}
         <footer className="status-bar">

@@ -55,7 +55,7 @@ function buildAlerts(nodes: NodeDepth[]): Alert[] {
 
 export default function AlertPanel({ nodes, routeResult, showRoute }: AlertPanelProps) {
   const [alerts, setAlerts] = useState<Alert[]>(() => buildAlerts(nodes));
-  const [minimized, setMinimized] = useState(true);
+  const [minimized, setMinimized] = useState(false);
   const [activeTab, setActiveTab] = useState<'alerts' | 'route' | 'catchment'>('alerts');
 
   // PySewer / Catchment state
@@ -90,9 +90,9 @@ export default function AlertPanel({ nodes, routeResult, showRoute }: AlertPanel
 
   return (
     <div
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center pointer-events-auto"
+      style={{ position: 'fixed', top: '80px', right: '20px', zIndex: 999999 }}
+      className="flex flex-col items-end pointer-events-auto"
       onMouseEnter={() => setMinimized(false)}
-      onMouseLeave={() => setMinimized(true)}
     >
       {/* ─── Pop-up Monitor Window (Opens on Hover) ─── */}
       {!minimized && (
@@ -210,6 +210,26 @@ export default function AlertPanel({ nodes, routeResult, showRoute }: AlertPanel
             <div className="pt-2 text-slate-400 text-[10px]">
               Surface runoff cascades from CP ridgelines (216.5m) into Minto Underpass sag (210.5m). Pipe layout synthesized via PySewer gravity engine.
             </div>
+            {pysewerData?.pipes && pysewerData.pipes.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <div className="font-bold text-slate-300 border-b border-slate-700 pb-1 mb-1">
+                  Synthesized Pipe Layout
+                </div>
+                {pysewerData.pipes.map((pipe, idx) => (
+                  <div key={idx} className="bg-slate-900/80 p-2 rounded border border-slate-800 flex flex-col gap-1">
+                    <div className="font-semibold text-blue-300">
+                      {pipe.from_name || pipe.from_node} ➔ {pipe.to_name || pipe.to_node}
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-2 text-[10px] text-slate-400">
+                      <div>Length: <span className="text-slate-200">{pipe.length_m.toFixed(1)}m</span></div>
+                      <div>Diameter: <span className="text-slate-200">{pipe.diameter_mm.toFixed(0)}mm</span></div>
+                      <div>Slope: <span className="text-emerald-400">{pipe.slope_pct.toFixed(2)}%</span></div>
+                      <div>Velocity: <span className="text-amber-400">{pipe.velocity_ms.toFixed(2)} m/s</span></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -40,12 +40,11 @@ interface FloodMapProps {
   onChokeActiveRoute?: () => void;
 }
 
-// Flood depth → colour mapping (matches standard hydrological risk legend)
+// Flood depth → colour mapping (3-tier: green=safe, orange=danger, red=critical)
 function getDepthColor(depth: number): string {
-  if (depth >= 30) return '#ef4444';   // CRITICAL — red
-  if (depth >= 20) return '#f97316';   // HIGH — orange
-  if (depth >= 10) return '#f59e0b';   // MEDIUM — amber
-  return '#10b981';                     // SAFE — green (No blue nodes)
+  if (depth >= 30) return '#ef4444';   // CRITICAL — red (≥ 30 cm, vehicle stall risk)
+  if (depth >= 10) return '#f97316';   // DANGER — orange (10–30 cm, caution zone)
+  return '#10b981';                     // SAFE — green (< 10 cm, passable)
 }
 
 function getDepthRadius(depth: number, isWaypoint: boolean = false): number {
@@ -131,6 +130,7 @@ export default function FloodMap({
 }: FloodMapProps) {
   const blockedSet = useMemo(() => new Set(blockedNodes), [blockedNodes]);
   const [showPotholes, setShowPotholes] = useState<boolean>(true);
+  const [showRisk, setShowRisk] = useState<boolean>(false);
   const [showChokeModal, setShowChokeModal] = useState<boolean>(false);
   const [chokeDirection, setChokeDirection] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -260,6 +260,7 @@ export default function FloodMap({
                 </div>
               </div>
             </div>
+
 
             {onStopAutoSim && (
               <button
@@ -695,6 +696,24 @@ export default function FloodMap({
 
           <button
             type="button"
+            onClick={() => setShowRisk(prev => !prev)}
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              padding: '3px 8px',
+              borderRadius: 12,
+              cursor: 'pointer',
+              border: showRisk ? '1px solid #ef4444' : '1px solid rgba(255,255,255,0.15)',
+              background: showRisk ? 'rgba(239, 68, 68, 0.25)' : 'rgba(255,255,255,0.05)',
+              color: showRisk ? '#fca5a5' : '#94a3b8',
+              marginLeft: 'auto',
+            }}
+          >
+            ⚠️ Show Risk {showRisk ? 'ON' : 'OFF'}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setShowPotholes(prev => !prev)}
             style={{
               fontSize: 10,
@@ -705,7 +724,7 @@ export default function FloodMap({
               border: showPotholes ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.15)',
               background: showPotholes ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255,255,255,0.05)',
               color: showPotholes ? '#fbbf24' : '#94a3b8',
-              marginLeft: 'auto',
+              marginLeft: '8px',
             }}
           >
             🕳️ Potholes ({potholes.length}) {showPotholes ? 'ON' : 'OFF'}
@@ -1216,79 +1235,7 @@ export default function FloodMap({
           />
         )}
 
-        {/* ─── Alternate Route(s) with Predicted Water Level (Glowing Red Line Trace) ─── */}
-        {showRoute && routeResult?.alternate_routes && routeResult.alternate_routes.map((alt, idx) => {
-          if (!alt.path_coords || alt.path_coords.length < 2) return null;
-          const midIdx = Math.floor(alt.path_coords.length / 2);
-          const midPt = alt.path_coords[midIdx];
-          const isFlooded = alt.max_depth_cm > 15;
-
-          return (
-            <Fragment key={alt.id || idx}>
-              {/* Glowing Red Polyline Trace */}
-              <Polyline
-                positions={alt.path_coords.map(p => [p.lat, p.lon] as [number, number])}
-                pathOptions={{
-                  color: '#ef4444',
-                  weight: 5,
-                  opacity: 0.85,
-                  dashArray: '8 6',
-                }}
-              />
-
-              {/* Midpoint Warning Callout Badge on the Alternate Red Path */}
-              {midPt && (
-                <CircleMarker
-                  center={[midPt.lat, midPt.lon]}
-                  radius={10}
-                  pathOptions={{
-                    color: '#ffffff',
-                    fillColor: '#ef4444',
-                    fillOpacity: 1,
-                    weight: 2.5,
-                  }}
-                >
-                  <Tooltip permanent direction="top" offset={[0, -10]}>
-                    <div style={{ fontWeight: 800, fontSize: 10.5, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span>🚨 {alt.name}</span>
-                      <span style={{ color: '#dc2626', fontWeight: 900 }}>[{alt.max_depth_cm.toFixed(1)}cm Water]</span>
-                    </div>
-                  </Tooltip>
-                  <Popup>
-                    <div className="popup-content" style={{ minWidth: 230 }}>
-                      <div className="popup-title" style={{ color: '#ef4444' }}>
-                        🚨 Alternate Path (Rejected by AI)
-                      </div>
-                      <div className="popup-stat">
-                        <span>Route Name</span>
-                        <span className="popup-stat-value">{alt.name}</span>
-                      </div>
-                      <div className="popup-stat">
-                        <span>Predicted Peak Water</span>
-                        <span className="popup-stat-value" style={{ color: '#ef4444', fontWeight: 800 }}>
-                          {alt.max_depth_cm.toFixed(1)} cm ({isFlooded ? 'UNSAFE SUBMERGED' : 'PASSABLE'})
-                        </span>
-                      </div>
-                      <div className="popup-stat">
-                        <span>Average Road Depth</span>
-                        <span className="popup-stat-value">{alt.avg_depth_cm.toFixed(1)} cm</span>
-                      </div>
-                      <div className="popup-stat">
-                        <span>Total Distance</span>
-                        <span className="popup-stat-value">{alt.distance_m} m</span>
-                      </div>
-                      <div style={{ marginTop: 8, padding: '6px 8px', borderRadius: 6, background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', fontSize: 10.5 }}>
-                        <strong>AI Model Decision:</strong> {alt.reason_rejected}
-                      </div>
-                    </div>
-                  </Popup>
-                </CircleMarker>
-              )}
-            </Fragment>
-          );
-        })}
-
-        {/* Safe ambulance route — Glowing Emerald Line with animated ant-march */}
+        {/* ─── Safe ambulance route — Glowing Emerald Line with water depth markers ─── */}
         {showRoute && routePath.length > 1 && (
           <>
             {/* Glow backing with interactive click-to-choke path */}
@@ -1331,6 +1278,35 @@ export default function FloodMap({
                 },
               }}
             />
+
+            {/* ─── Water Depth Labels on Safe Route Waypoints ─── */}
+            {routePath
+              .filter((_, idx) => idx > 0 && idx < routePath.length - 1) // skip start/end
+              .filter((_, idx) => idx % Math.max(1, Math.floor(routePath.length / 6)) === 0) // show ~5 depth markers
+              .map((pt) => {
+                const ptDepth = nodeDepthMap.get(pt.node_id) ?? 0;
+                const depthColor = ptDepth >= 15 ? '#ef4444' : ptDepth >= 8 ? '#f59e0b' : '#10b981';
+                return (
+                  <CircleMarker
+                    key={`depth-${pt.node_id}`}
+                    center={[pt.lat, pt.lon]}
+                    radius={5}
+                    pathOptions={{
+                      color: '#ffffff',
+                      fillColor: depthColor,
+                      fillOpacity: 1,
+                      weight: 2,
+                    }}
+                  >
+                    <Tooltip permanent direction="top" offset={[0, -8]}>
+                      <div style={{ fontWeight: 800, fontSize: 9.5, color: '#0f172a', whiteSpace: 'nowrap' }}>
+                        💧 {ptDepth.toFixed(1)}cm
+                      </div>
+                    </Tooltip>
+                  </CircleMarker>
+                );
+              })
+            }
 
             {/* Route START Marker (Origin) — Emerald Green */}
             <CircleMarker
@@ -1403,10 +1379,14 @@ export default function FloodMap({
         )}
 
         {/* Pothole Hazard Markers Layer with Interactive Click-to-Choke — hidden when safest path is active */}
+
         {showPotholes && (!isSafeRouteActive || showNodesWhenRouting) && potholes.map((ph) => {
           const isSevere = ph.severity === 'SEVERE';
           const mappedNodeId = potholeNodeMap.get(ph.id) || ph.id;
           const isChoked = blockedSet.has(mappedNodeId);
+          // Get dynamic depth from the simulation to dictate color
+          const currentDepth = nodeDepthMap.get(mappedNodeId) ?? 0;
+          const dynamicColor = getDepthColor(currentDepth);
 
           return (
             <CircleMarker
@@ -1414,11 +1394,11 @@ export default function FloodMap({
               center={[ph.lat, ph.lon]}
               radius={isChoked ? 11 : isSevere ? 9 : 7}
               pathOptions={{
-                color: isChoked ? '#dc2626' : '#ffffff',
-                fillColor: isChoked ? '#ef4444' : isSevere ? '#ef4444' : '#f59e0b',
-                fillOpacity: isChoked ? 1 : 0.9,
+                color: isChoked ? '#ffffff' : dynamicColor,
+                fillColor: isChoked ? '#ef4444' : dynamicColor,
+                fillOpacity: isChoked ? 1 : getDepthOpacity(currentDepth),
                 weight: isChoked ? 3 : 2,
-                dashArray: isChoked ? '3 3' : undefined,
+                dashArray: isChoked ? '4 3' : undefined,
               }}
               eventHandlers={{
                 click: () => toggleChoke(mappedNodeId),
@@ -1563,11 +1543,17 @@ export default function FloodMap({
                 center={[node.lat, node.lon]}
                 radius={isBlocked ? radius + 3 : radius}
                 pathOptions={{
-                  color: isBlocked ? '#ffffff' : isEndpoint ? (isSource ? '#10b981' : '#6366f1') : getDepthColor(node.depth_cm),
-                  fillColor: isBlocked ? '#dc2626' : getDepthColor(node.depth_cm),
-                  fillOpacity: isBlocked ? 0.95 : getDepthOpacity(node.depth_cm),
+                  // Border: white for blocked (shows the dashed halo), endpoint color for endpoints, else depth color
+                  color: isBlocked ? '#ffffff' : isEndpoint ? (isSource ? '#10b981' : '#6366f1') : (showRisk ? getDepthColor(node.depth_cm) : '#38bdf8'),
+                  // Fill
+                  fillColor: isEndpoint && !isBlocked
+                    ? (isSource ? '#10b981' : '#6366f1')
+                    : (showRisk ? getDepthColor(node.depth_cm) : '#38bdf8'),
+                  fillOpacity: isBlocked ? 1.0 : (showRisk ? getDepthOpacity(node.depth_cm) : 0.6),
                   weight: isBlocked || isEndpoint ? 3 : 2,
                   opacity: 0.9,
+                  // Dashed border for blocked/choked nodes to indicate surcharging
+                  dashArray: isBlocked ? '4 3' : undefined,
                 }}
                 eventHandlers={{
                   click: () => onNodeClick(node.node_id),

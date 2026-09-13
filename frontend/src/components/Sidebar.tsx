@@ -199,128 +199,6 @@ export default function Sidebar({
         />
       </div>
 
-      {/* Starting Location Dropdown (Curated 12 Locations) */}
-      <div style={{ padding: '0 16px 12px' }}>
-        <div
-          className="glass-card"
-          style={{
-            border: '1px solid rgba(99, 102, 241, 0.3)',
-            background: 'rgba(15, 23, 42, 0.8)',
-            padding: 12,
-          }}
-        >
-          <label
-            htmlFor="route-source"
-            style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
-            <span>Select Dispatch Starting Location (14 Hubs)</span>
-          </label>
-
-          <select
-            id="route-source"
-            value={routeSource}
-            onChange={(e) => onRouteSourceChange(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              background: 'rgba(15, 23, 42, 0.95)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: 8,
-              color: '#f1f5f9',
-              fontSize: 12,
-              fontWeight: 600,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="" style={{ background: '#0f172a', color: '#64748b' }}>— Select Starting Location —</option>
-            {STARTING_LOCATIONS_12.map((loc: any) => (
-              <option key={loc.id} value={loc.id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
-                {loc.name} ({loc.area})
-              </option>
-            ))}
-          </select>
-
-          <label
-            htmlFor="route-target"
-            style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 6 }}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', display: 'inline-block' }} />
-            <span>Select Destination Hospital / Facility</span>
-          </label>
-
-          <select
-            id="route-target"
-            value={routeTarget}
-            onChange={(e) => onRouteTargetChange(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 10px',
-              borderRadius: '8px',
-              border: '1px solid var(--border-subtle)',
-              background: 'rgba(30,41,59,0.8)',
-              color: 'var(--text-primary)',
-              fontSize: 12,
-              fontWeight: 600,
-              outline: 'none',
-              cursor: 'pointer',
-            }}
-          >
-            <option value="" style={{ background: '#0f172a', color: '#64748b' }}>— Select Destination —</option>
-            {TOP_15_DESTINATIONS.map((loc: any) => (
-              <option key={loc.id} value={loc.id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
-                {loc.name} ({loc.area})
-              </option>
-            ))}
-          </select>
-
-          {/* Empty state hint */}
-          {!routeTarget && (
-            <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 10.5, color: '#a5b4fc', textAlign: 'center' }}>
-              🏥 Select a destination hospital above to begin route simulation
-            </div>
-          )}
-
-          {/* Route Status Result */}
-          {routeResult && (
-            <div style={{ marginTop: 8, padding: '6px 8px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: 10 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#34d399', fontWeight: 700 }}>
-                <span>🚑 Safe Path: {(routeResult.distance_m / 1000).toFixed(2)} km</span>
-                <span style={{ color: '#38bdf8' }}>Max Depth: {(routeResult.safe_max_depth_cm ?? 0).toFixed(1)} cm</span>
-              </div>
-            </div>
-          )}
-
-          {/* Re-Simulate button */}
-          {routeTarget && (
-            <button
-              type="button"
-              onClick={() => { onResimulate?.(); }}
-              style={{
-                marginTop: 10,
-                width: '100%',
-                padding: '8px 10px',
-                borderRadius: 7,
-                background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(56,189,248,0.15))',
-                border: '1px solid rgba(16,185,129,0.4)',
-                color: '#34d399',
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <span>🔄</span>
-              <span>Re-Simulate Route</span>
-            </button>
-          )}
-        </div>
-      </div>
 
       {/* Sliders */}
       <RainSlider value={rainMm} onChange={onRainChange} label="1. Rainfall Rate (Intensity)" />
@@ -377,7 +255,68 @@ export default function Sidebar({
         </div>
       )}
 
-      {/* Live Weather Feed */}
+      {/* ROUTE PLANNER */}
+      <div className="sidebar-section">
+        <div className="section-title">Emergency Route Planner</div>
+        <div className="glass-card" style={{ padding: '12px' }}>
+          <label style={{ fontSize: 11, fontWeight: 'bold', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+            Select Dispatch Starting Location (6 Hubs)
+          </label>
+          <select
+            value={routeSource}
+            onChange={(e) => onRouteSourceChange?.(e.target.value)}
+            style={{ width: '100%', padding: 8, background: '#0f172a', border: '1px solid #334155', borderRadius: 4, color: '#e2e8f0', fontSize: 12, marginBottom: 12, outline: 'none' }}
+          >
+            <option value="">— Select Starting Location —</option>
+            {STARTING_LOCATIONS_12.map((loc: any) => (
+              <option key={loc.id} value={loc.id}>{loc.name} ({loc.area})</option>
+            ))}
+          </select>
+
+          <label style={{ fontSize: 11, fontWeight: 'bold', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', display: 'inline-block' }} />
+            Select Destination Hospital / Facility
+          </label>
+          <select
+            value={routeTarget}
+            onChange={(e) => onRouteTargetChange?.(e.target.value)}
+            style={{ width: '100%', padding: 8, background: '#0f172a', border: '1px solid #334155', borderRadius: 4, color: '#e2e8f0', fontSize: 12, outline: 'none' }}
+          >
+            <option value="">— Select Destination —</option>
+            {TOP_15_DESTINATIONS.map((loc: any) => (
+              <option key={loc.id} value={loc.id}>{loc.name} ({loc.area})</option>
+            ))}
+          </select>
+
+          {routeTarget && (
+            <button
+              onClick={onResimulate}
+              style={{ marginTop: 12, width: '100%', padding: 8, borderRadius: 4, background: 'rgba(79, 70, 229, 0.2)', border: '1px solid rgba(99, 102, 241, 0.5)', color: '#a5b4fc', fontSize: 12, fontWeight: 'bold', cursor: 'pointer', transition: 'background 0.2s', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}
+            >
+              🔄 Re-Simulate Route
+            </button>
+          )}
+        </div>
+
+        {routeResult && (
+          <div style={{ padding: 12, background: 'rgba(6, 78, 59, 0.2)', borderRadius: 8, border: '1px solid rgba(4, 120, 87, 0.3)', marginTop: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: '#34d399', fontSize: 12, borderBottom: '1px solid rgba(6, 78, 59, 0.5)', paddingBottom: 4, marginBottom: 4 }}>
+              <span>Ambulance Status</span>
+              <span>{routeResult.is_rerouted ? 'Rerouted' : 'Direct Route'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#cbd5e1', marginBottom: 2 }}>
+              <span>Safe Path:</span>
+              <span style={{ fontFamily: 'monospace', color: '#6ee7b7' }}>{(routeResult.distance_m / 1000).toFixed(2)} km</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#cbd5e1' }}>
+              <span>Max Water Depth:</span>
+              <span style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{(routeResult.safe_max_depth_cm ?? 0).toFixed(1)} cm</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {rainData && (
         <div className="sidebar-section">
           <div className="section-title">Live Weather Feed (Open-Meteo)</div>
@@ -389,11 +328,21 @@ export default function Sidebar({
             <div className="text-[10px] text-slate-400 mt-1">
               Wind: {rainData.wind_speed_kmh} km/h • Station: Delhi Minto Bridge
             </div>
+            {/* Show sync status */}
+            <div style={{ fontSize: 9.5, color: Math.abs(rainMm - rainData.current_rain_mm) < 1 ? '#10b981' : '#f59e0b', fontWeight: 700, marginTop: 4 }}>
+              {Math.abs(rainMm - rainData.current_rain_mm) < 1
+                ? '✅ Slider synced to live data'
+                : `⚠️ Sim: ${rainMm} mm/hr vs Live: ${rainData.current_rain_mm} mm/hr`}
+            </div>
             <button
               type="button"
               onClick={() => {
-                onRainChange(rainData.current_rain_mm);
+                const liveRain = Math.round(rainData.current_rain_mm);
+                onRainChange(liveRain);
                 onMinutesChange(30);
+                // Persist to localStorage so slider stays synced
+                localStorage.setItem('agastya_sim_rain_mm', String(liveRain));
+                localStorage.setItem('agastya_sim_minutes', '30');
               }}
               style={{
                 marginTop: 8,
@@ -417,6 +366,7 @@ export default function Sidebar({
           </div>
         </div>
       )}
+
 
       {/* Footer */}
       <div style={{ marginTop: 'auto', padding: '10px 16px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center' }}>
