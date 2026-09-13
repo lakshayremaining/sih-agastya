@@ -313139,4 +313139,31 @@ export const STARTING_LOCATIONS_12: DestinationItem[] = [
   { id: "lady_hardinge_hospital", name: "14. Lady Hardinge Medical College & Hospital", icon: "??", area: "Panchkuian / CP West", badge: "Super Specialty Hospital" }
 ];
 
-export const TOP_15_DESTINATIONS = STARTING_LOCATIONS_12;
+
+
+export function findOptimalSafeRoutePair(
+  rainMm: number,
+  minutes: number = 30,
+  blockedNodes: string[] = [],
+  depthsMap?: Record<string, number>
+): { source: string; target: string; sourceName: string; targetName: string; route: any } | null {
+  for (let i = 0; i < STARTING_LOCATIONS_12.length; i++) {
+    for (let j = 0; j < STARTING_LOCATIONS_12.length; j++) {
+      if (i === j) continue;
+      const src = STARTING_LOCATIONS_12[i];
+      const tgt = STARTING_LOCATIONS_12[j];
+      const res = findRouteLocal(src.id, tgt.id, rainMm, 15, minutes, blockedNodes, depthsMap);
+      if (res && res.reachable) {
+        return {
+          source: src.id,
+          target: tgt.id,
+          sourceName: src.name,
+          targetName: tgt.name,
+          route: res
+        };
+      }
+    }
+  }
+  return null;
+}
+
