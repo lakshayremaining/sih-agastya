@@ -64,9 +64,9 @@ export default function App() {
 
   const [chokeMode, setChokeMode] = useState<boolean>(false);
 
-  const [showRoute, setShowRoute] = useState<boolean>(true);
+  const [showRoute, setShowRoute] = useState<boolean>(false);
   const [routeSource, setRouteSource] = useState<string>('ito_junction');
-  const [routeTarget, setRouteTarget] = useState<string>('ganga_ram_hospital');
+  const [routeTarget, setRouteTarget] = useState<string>('');
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [routePath, setRoutePath] = useState<PathCoord[]>([]);
 
@@ -627,6 +627,9 @@ export default function App() {
         onRouteTargetChange={(tgt) => {
           if (isAutoSim) stopAutoSim();
           setRouteTarget(tgt);
+          // Auto-enable simulation when user picks a destination
+          if (tgt) setShowRoute(true);
+          else setShowRoute(false);
         }}
         routeResult={routeResult}
         nodes={nodes}
@@ -637,6 +640,12 @@ export default function App() {
         autoSimStep={autoSimStep}
         onStartAutoSim={startAutoSim}
         onStopAutoSim={stopAutoSim}
+        onResimulate={() => {
+          if (isAutoSim) stopAutoSim();
+          const depthsMap: Record<string, number> = {};
+          nodes.forEach(n => { depthsMap[n.node_id] = n.depth_cm; });
+          runRouting(routeSource, routeTarget, rainMm, minutes, blockedNodes, depthsMap);
+        }}
       />
 
       {/* ─── Main Content ─── */}

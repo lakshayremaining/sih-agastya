@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { FloodSummary, RainResponse } from '../lib/api';
-import { STARTING_LOCATIONS_12 } from '../lib/networkData';
+import { STARTING_LOCATIONS_12, TOP_15_DESTINATIONS } from '../lib/networkData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import StatCard from './StatCard';
 import RainSlider from './RainSlider';
@@ -19,6 +19,8 @@ interface SidebarProps {
   showRoute?: boolean;
   onRouteToggle?: () => void;
   routeSource: string;
+  routeTarget: string;
+  onRouteTargetChange: (v: string) => void;
   onRouteSourceChange: (v: string) => void;
   routeResult?: import('../lib/api').RouteResponse | null;
   nodes?: Array<{ node_id: string; name: string; depth_cm: number; risk_level: string }>;
@@ -29,6 +31,7 @@ interface SidebarProps {
   autoSimStep?: number;
   onStartAutoSim?: () => void;
   onStopAutoSim?: () => void;
+  onResimulate?: () => void;
 }
 
 export default function Sidebar({
@@ -40,6 +43,8 @@ export default function Sidebar({
   rainData,
   routeSource,
   onRouteSourceChange,
+  routeTarget,
+  onRouteTargetChange,
   routeResult = null,
   nodes = [],
   loading,
@@ -48,6 +53,7 @@ export default function Sidebar({
   autoSimStep = 0,
   onStartAutoSim,
   onStopAutoSim,
+  onResimulate,
 }: SidebarProps) {
   const riskData = summary
     ? [
@@ -236,6 +242,46 @@ export default function Sidebar({
             ))}
           </select>
 
+          <label
+            htmlFor="route-target"
+            style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, marginBottom: 6 }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', display: 'inline-block' }} />
+            <span>Select Destination Hospital / Facility</span>
+          </label>
+
+          <select
+            id="route-target"
+            value={routeTarget}
+            onChange={(e) => onRouteTargetChange(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--border-subtle)',
+              background: 'rgba(30,41,59,0.8)',
+              color: 'var(--text-primary)',
+              fontSize: 12,
+              fontWeight: 600,
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="" style={{ background: '#0f172a', color: '#64748b' }}>— Select Destination —</option>
+            {TOP_15_DESTINATIONS.map((loc: any) => (
+              <option key={loc.id} value={loc.id} style={{ background: '#0f172a', color: '#f1f5f9' }}>
+                {loc.name} ({loc.area})
+              </option>
+            ))}
+          </select>
+
+          {/* Empty state hint */}
+          {!routeTarget && (
+            <div style={{ marginTop: 10, padding: '8px 10px', borderRadius: 6, background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', fontSize: 10.5, color: '#a5b4fc', textAlign: 'center' }}>
+              🏥 Select a destination hospital above to begin route simulation
+            </div>
+          )}
+
           {/* Route Status Result */}
           {routeResult && (
             <div style={{ marginTop: 8, padding: '6px 8px', borderRadius: 6, background: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: 10 }}>
@@ -244,6 +290,34 @@ export default function Sidebar({
                 <span style={{ color: '#38bdf8' }}>Max Depth: {(routeResult.safe_max_depth_cm ?? 0).toFixed(1)} cm</span>
               </div>
             </div>
+          )}
+
+          {/* Re-Simulate button */}
+          {routeTarget && (
+            <button
+              type="button"
+              onClick={() => { onResimulate?.(); }}
+              style={{
+                marginTop: 10,
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 7,
+                background: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(56,189,248,0.15))',
+                border: '1px solid rgba(16,185,129,0.4)',
+                color: '#34d399',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span>🔄</span>
+              <span>Re-Simulate Route</span>
+            </button>
           )}
         </div>
       </div>
