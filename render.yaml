@@ -1,20 +1,10 @@
 services:
-  # AGASTYA FastAPI Backend
   - type: web
     name: agastya-backend
-    runtime: python
-    region: singapore
-    plan: free
+    env: python
     rootDir: backend
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port $PORT"
-    healthCheckPath: /health
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: FRONTEND_ORIGIN
-        # Initial placeholder; update with the verified Vercel production URL once assigned.
-        # Note: All *.vercel.app subdomains are dynamically permitted by backend regex.
-        value: https://agastya.vercel.app
-
-
+        value: 3.11.0
