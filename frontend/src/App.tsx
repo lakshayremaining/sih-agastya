@@ -66,7 +66,7 @@ export default function App() {
 
   const [showRoute, setShowRoute] = useState<boolean>(true);
   const [routeSource, setRouteSource] = useState<string>('ito_junction');
-  const [routeTarget, setRouteTarget] = useState<string>('');
+  const [routeTarget, setRouteTarget] = useState<string>('ganga_ram_hospital');
   const [routeResult, setRouteResult] = useState<RouteResponse | null>(null);
   const [routePath, setRoutePath] = useState<PathCoord[]>([]);
 
@@ -622,6 +622,11 @@ export default function App() {
         onRouteSourceChange={(src) => {
           if (isAutoSim) stopAutoSim();
           setRouteSource(src);
+        }}
+        routeTarget={routeTarget}
+        onRouteTargetChange={(tgt) => {
+          if (isAutoSim) stopAutoSim();
+          setRouteTarget(tgt);
         }}
         routeResult={routeResult}
         nodes={nodes}
